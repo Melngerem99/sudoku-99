@@ -4,7 +4,6 @@
 
 import { PEERS } from '../core/solver';
 import { FocusTrap, setAppAriaHidden } from './accessibility';
-import { FocusTrap, setAppAriaHidden } from './accessibility';
 
 type Board = number[];
 type CandidateGrid = Set<number>[];
