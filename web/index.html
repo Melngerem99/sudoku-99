@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Modern Sudoku — hints, pencil marks, undo/redo, dark mode." />
+  <meta name="theme-color" content="#f0f2f8" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0f0f1a"  media="(prefers-color-scheme: dark)"  />
+  <title>Sudoku</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Sudoku" />
+  <link rel="apple-touch-icon" href="icons/icon-maskable-192.png" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-96.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-72.png" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<!--
+  index.html
+  ──────────
+  Layout (top → bottom inside #app):
+    #header          title · settings btn · dark-mode btn
+    #stats           timer · difficulty badge · mistake pips
+    #grid-wrap       9×9 grid (built by ui.js)
+    #numpad          digit buttons 1-9 (built by ui.js)
+    #toolbar         icon action row: undo · redo · erase · pencil · hint · auto
+
+  Fixed overlays (outside #app):
+    #hint-panel      bottom-sheet with legend, technique, explanation, Apply/Resolve
+    #hint-scrim      backdrop for hint panel
+    #settings-drawer bottom-sheet with difficulty chips + new-game actions
+    #settings-scrim  backdrop for settings drawer
+    #modal-overlay   centre modal for win/confirm/errors
+-->
+<body>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       MAIN APP
+       ════════════════════════════════════════════════════════════════════ -->
+  <main id="app" role="main">
+
+    <!-- Header ─────────────────────────────────────────────────────────── -->
+    <header id="header">
+      <h1>Sudoku</h1>
+      <div id="header-controls">
+        <button id="btn-daily"
+                aria-label="Daily challenge"
+                title="Daily Challenge">📅<span id="daily-status-badge" class="daily-badge"></span></button>
+        <button id="btn-stats"
+                aria-label="View statistics"
+                title="Statistics">📊</button>
+        <button id="btn-settings"
+                aria-label="Open settings"
+                title="Settings">⚙️</button>
+        <button id="btn-dark"
+                aria-label="Toggle dark mode"
+                aria-pressed="false"
+                title="Toggle dark / light mode"></button>
+      </div>
+    </header>
+
+    <!-- Status bar: timer · difficulty · mistakes ───────────────────────── -->
+    <section id="stats" aria-label="Game statistics">
+
+      <div id="timer"
+           aria-live="off"
+           aria-label="Elapsed time">00:00</div>
+
+      <div id="difficulty-badge"
+           aria-live="polite"
+           aria-atomic="true"
+           aria-label="Current difficulty">Medium</div>
+
+      <div class="mistake-wrap" aria-label="Mistakes">
+        <div class="mistake-pip" data-pip="1" aria-hidden="true"></div>
+        <div class="mistake-pip" data-pip="2" aria-hidden="true"></div>
+        <div class="mistake-pip" data-pip="3" aria-hidden="true"></div>
+        <span id="mistake-count" class="sr-only" aria-live="polite">0 of 3 mistakes</span>
+      </div>
+
+    </section>
+
+    <!-- 9×9 Grid ─────────────────────────────────────────────────────────
+         Cells are injected by ui.js → buildGrid().
+         Each cell div gets: data-idx, tabindex="0", role="gridcell",
+           .pencil-marks (3×3 .mark spans), .cell-digit span.
+    ────────────────────────────────────────────────────────────────────── -->
+    <div id="grid-wrap">
+      <section id="sudoku-grid"
+               role="grid"
+               aria-label="Sudoku puzzle grid"
+               aria-rowcount="9"
+               aria-colcount="9"></section>
+    </div>
+
+    <!-- Number pad 1-9 ──────────────────────────────────────────────────
+         Buttons are injected by ui.js → buildNumpad().
+         Each gets: data-digit, aria-label, .digit-badge span.
+    ────────────────────────────────────────────────────────────────────── -->
+    <section id="numpad"
+             role="toolbar"
+             aria-label="Digit input"></section>
+
+    <!-- Icon action toolbar ──────────────────────────────────────────────
+         tool-btn = icon + text-label stacked vertically.
+    ────────────────────────────────────────────────────────────────────── -->
+    <section id="toolbar"
+             role="toolbar"
+             aria-label="Game tools">
+
+      <button id="btn-undo"
+              class="tool-btn"
+              title="Undo (Ctrl+Z)"
+              aria-label="Undo"
+              disabled>
+        <span class="tool-icon" aria-hidden="true">↩</span>
+        <span class="tool-label">Undo</span>
+      </button>
+
+      <button id="btn-redo"
+              class="tool-btn"
+              title="Redo (Ctrl+Y)"
+              aria-label="Redo"
+              disabled>
+        <span class="tool-icon" aria-hidden="true">↪</span>
+        <span class="tool-label">Redo</span>
+      </button>
+
+      <button id="btn-eraser"
+              class="tool-btn"
+              title="Erase (Delete)"
+              aria-label="Erase selected cell">
+        <span class="tool-icon" aria-hidden="true">✕</span>
+        <span class="tool-label">Erase</span>
+      </button>
+
+      <button id="btn-pencil"
+              class="tool-btn"
+              title="Pencil mode (P)"
+              aria-label="Toggle pencil marks"
+              aria-pressed="false">
+        <span class="tool-icon" aria-hidden="true">✏️</span>
+        <span class="tool-label">Pencil</span>
+      </button>
+
+      <button id="btn-hint"
+              class="tool-btn"
+              title="Hint (H)"
+              aria-label="Show a hint">
+        <span class="tool-icon" aria-hidden="true">💡</span>
+        <span class="tool-label">Hint</span>
+      </button>
+
+      <button id="btn-auto-candidates"
+              class="tool-btn"
+              title="Auto-fill candidates"
+              aria-label="Auto-fill all candidates">
+        <span class="tool-icon" aria-hidden="true">⚡</span>
+        <span class="tool-label">Fill</span>
+      </button>
+
+      <button id="btn-step-solve"
+              class="tool-btn"
+              title="Step-by-step solver"
+              aria-label="Step-by-step solver">
+        <span class="tool-icon" aria-hidden="true">🔬</span>
+        <span class="tool-label">Steps</span>
+      </button>
+
+    </section>
+
+  </main><!-- /#app -->
+
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       HINT PANEL  (bottom sheet, slides up over grid)
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <div id="hint-scrim" aria-hidden="true"></div>
+
+  <aside id="hint-panel"
+         aria-hidden="true"
+         aria-label="Hint details"
+         role="dialog"
+         aria-modal="true">
+
+    <div class="hint-handle" aria-hidden="true"></div>
+
+    <div class="hint-panel-body">
+
+      <!-- Colour key -->
+      <div class="hint-legend" aria-hidden="true">
+        <div class="legend-item">
+          <span class="legend-swatch swatch-blue"></span>
+          <span class="legend-text">Pattern</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch swatch-yellow"></span>
+          <span class="legend-text">Pivot</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch swatch-purple"></span>
+          <span class="legend-text">Eliminate</span>
+        </div>
+      </div>
+
+      <!-- Technique name badge -->
+      <div class="hint-name-pill">
+        <span id="hint-technique-name" aria-live="polite"></span>
+      </div>
+
+      <!-- Explanation -->
+      <p id="hint-explanation" aria-live="polite"></p>
+
+    </div>
+
+    <!-- Actions -->
+    <div class="hint-actions">
+      <button id="hint-btn-dismiss"
+              class="hint-action-btn"
+              aria-label="Dismiss hint">✕ Dismiss</button>
+      <button id="hint-btn-apply"
+              class="hint-action-btn"
+              aria-label="Apply hint — remove candidates">✂ Apply</button>
+      <button id="hint-btn-resolve"
+              class="hint-action-btn"
+              aria-label="Resolve hint — place digit">✔ Resolve</button>
+    </div>
+
+  </aside>
+
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       STEP SOLVER PANEL  (bottom sheet overlay)
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <div id="step-solver-scrim" aria-hidden="true"></div>
+
+  <aside id="step-solver-panel"
+         aria-hidden="true"
+         aria-label="Step-by-step solver"
+         role="dialog"
+         aria-modal="true">
+
+    <div class="drawer-handle" aria-hidden="true"></div>
+
+    <div class="drawer-header">
+      <span class="drawer-title">Step Solver</span>
+      <button id="btn-step-close" aria-label="Exit step solver">✕</button>
+    </div>
+
+    <!-- Step info -->
+    <div class="step-info">
+      <div class="step-counter" aria-live="polite">
+        <span>Step </span><span id="step-current">0</span><span> of </span><span id="step-total">0</span>
+      </div>
+      <div class="step-technique-pill">
+        <span id="step-technique-name">—</span>
+      </div>
+    </div>
+
+    <!-- Explanation -->
+    <div class="step-explanation-wrap">
+      <p id="step-explanation" aria-live="polite">Click ▶ to compute the solution path.</p>
+    </div>
+
+    <!-- Navigation controls -->
+    <div class="step-controls">
+      <button id="step-btn-first" class="step-nav-btn" aria-label="First step" disabled>⏮</button>
+      <button id="step-btn-prev" class="step-nav-btn" aria-label="Previous step" disabled>◀</button>
+      <button id="step-btn-play" class="step-nav-btn step-play-btn" aria-label="Auto-play">▶</button>
+      <button id="step-btn-next" class="step-nav-btn" aria-label="Next step" disabled>▶</button>
+      <button id="step-btn-last" class="step-nav-btn" aria-label="Last step" disabled>⏭</button>
+    </div>
+
+    <!-- Speed selector -->
+    <div class="step-speed">
+      <span class="step-speed-label">Speed:</span>
+      <button class="step-speed-btn active" data-speed="slow">Slow</button>
+      <button class="step-speed-btn" data-speed="normal">Normal</button>
+      <button class="step-speed-btn" data-speed="fast">Fast</button>
+    </div>
+
+    <!-- Summary (shown after completion) -->
+    <div id="step-summary" class="step-summary" style="display:none" aria-live="polite">
+      <div class="settings-label">Summary</div>
+      <div id="step-summary-content"></div>
+    </div>
+
+  </aside>
+
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       SETTINGS DRAWER  (bottom sheet)
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <div id="settings-scrim" aria-hidden="true"></div>
+
+  <aside id="settings-drawer"
+         aria-hidden="true"
+         aria-label="Settings"
+         role="dialog"
+         aria-modal="true">
+
+    <div class="drawer-handle" aria-hidden="true"></div>
+
+    <div class="drawer-header">
+      <span class="drawer-title">Settings</span>
+      <button id="btn-settings-close"
+              aria-label="Close settings">✕</button>
+    </div>
+
+    <!-- Difficulty -->
+    <div class="settings-section">
+      <div class="settings-label">Difficulty</div>
+      <div id="difficulty-buttons" role="group" aria-label="Select difficulty">
+        <button class="difficulty-btn" data-difficulty="easy">Easy</button>
+        <button class="difficulty-btn active" data-difficulty="medium">Medium</button>
+        <button class="difficulty-btn" data-difficulty="hard">Hard</button>
+        <button class="difficulty-btn" data-difficulty="expert">Expert</button>
+      </div>
+    </div>
+
+    <!-- New game actions -->
+    <div class="settings-section">
+      <div class="settings-label">New Game</div>
+      <button id="btn-new-game" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">🎲</span>
+        New Puzzle
+      </button>
+      <button id="btn-empty" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">📋</span>
+        Load Empty Grid
+      </button>
+      <button id="btn-solve" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">👁</span>
+        Reveal Solution
+      </button>
+    </div>
+
+    <!-- Import / Export -->
+    <div class="settings-section">
+      <div class="settings-label">Import / Export</div>
+      <button id="btn-import" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">📥</span>
+        Import Puzzle
+      </button>
+      <button id="btn-export" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">📤</span>
+        Export Puzzle
+      </button>
+      <button id="btn-share-url" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">🔗</span>
+        Copy Share Link
+      </button>
+    </div>
+
+    <!-- Analysis -->
+    <div class="settings-section">
+      <div class="settings-label">Analysis & Library</div>
+      <button id="btn-analyze" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">📊</span>
+        Analyze Puzzle
+      </button>
+      <button id="btn-save-puzzle" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">💾</span>
+        Save to Library
+      </button>
+      <button id="btn-library" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">📚</span>
+        Puzzle Library
+      </button>
+    </div>
+
+  </aside>
+
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       PUZZLE LIBRARY PANEL  (bottom sheet)
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <div id="library-scrim" aria-hidden="true"></div>
+
+  <aside id="library-panel"
+         aria-hidden="true"
+         aria-labelledby="library-panel-title"
+         role="dialog"
+         aria-modal="true">
+
+    <div class="drawer-handle" aria-hidden="true"></div>
+
+    <div class="drawer-header">
+      <span class="drawer-title" id="library-panel-title">Puzzle Library</span>
+      <button id="btn-library-close" aria-label="Close library">✕</button>
+    </div>
+
+    <!-- Filters -->
+    <div class="library-filters">
+      <select id="library-filter-diff" aria-label="Filter by difficulty">
+        <option value="">All Difficulties</option>
+        <option value="Easy">Easy</option>
+        <option value="Medium">Medium</option>
+        <option value="Hard">Hard</option>
+        <option value="Expert">Expert</option>
+        <option value="Master">Master</option>
+      </select>
+      <select id="library-filter-source" aria-label="Filter by source">
+        <option value="">All Sources</option>
+        <option value="generated">Generated</option>
+        <option value="daily">Daily</option>
+        <option value="imported">Imported</option>
+      </select>
+      <select id="library-sort" aria-label="Sort order">
+        <option value="newest">Newest</option>
+        <option value="oldest">Oldest</option>
+        <option value="hardest">Hardest</option>
+        <option value="easiest">Easiest</option>
+        <option value="recent">Recently Played</option>
+      </select>
+    </div>
+
+    <!-- Filter toggles -->
+    <div class="library-toggles">
+      <label class="library-toggle"><input type="checkbox" id="library-filter-fav"> ★ Favorites</label>
+      <label class="library-toggle"><input type="checkbox" id="library-filter-unsolved"> Unsolved</label>
+    </div>
+
+    <!-- Count -->
+    <div class="library-count" id="library-count" aria-live="polite">0 puzzles</div>
+
+    <!-- List -->
+    <div id="library-list" class="library-list" role="list" aria-label="Saved puzzles"></div>
+
+  </aside>
+
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       PUZZLE ANALYSIS PANEL  (bottom sheet)
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <div id="analysis-scrim" aria-hidden="true"></div>
+
+  <aside id="analysis-panel"
+         aria-hidden="true"
+         aria-label="Puzzle analysis"
+         aria-labelledby="analysis-panel-title"
+         role="dialog"
+         aria-modal="true">
+
+    <div class="drawer-handle" aria-hidden="true"></div>
+
+    <div class="drawer-header">
+      <span class="drawer-title" id="analysis-panel-title">Puzzle Analysis</span>
+      <button id="btn-analysis-close" aria-label="Close analysis">✕</button>
+    </div>
+
+    <!-- Difficulty comparison -->
+    <div class="analysis-difficulty">
+      <div class="analysis-diff-row">
+        <span class="analysis-diff-label">Source / Intended</span>
+        <span id="analysis-generated" class="analysis-diff-value">—</span>
+      </div>
+      <div class="analysis-diff-row">
+        <span class="analysis-diff-label">Actual</span>
+        <span id="analysis-actual" class="analysis-diff-value">—</span>
+      </div>
+      <div id="analysis-mismatch" class="analysis-mismatch" style="display:none"></div>
+    </div>
+
+    <!-- Key metrics -->
+    <div class="analysis-metrics">
+      <div class="analysis-metric">
+        <div class="analysis-metric-value" id="analysis-score">—</div>
+        <div class="analysis-metric-label">Score</div>
+      </div>
+      <div class="analysis-metric">
+        <div class="analysis-metric-value" id="analysis-steps">—</div>
+        <div class="analysis-metric-label">Steps</div>
+      </div>
+      <div class="analysis-metric">
+        <div class="analysis-metric-value" id="analysis-placements">—</div>
+        <div class="analysis-metric-label">Placements</div>
+      </div>
+      <div class="analysis-metric">
+        <div class="analysis-metric-value" id="analysis-eliminations">—</div>
+        <div class="analysis-metric-label">Eliminations</div>
+      </div>
+    </div>
+
+    <!-- Solve info -->
+    <div class="analysis-info">
+      <div class="analysis-info-row">
+        <span>Hardest Technique</span>
+        <span id="analysis-hardest">—</span>
+      </div>
+      <div class="analysis-info-row">
+        <span>First Technique</span>
+        <span id="analysis-first">—</span>
+      </div>
+      <div class="analysis-info-row">
+        <span>Last Technique</span>
+        <span id="analysis-last">—</span>
+      </div>
+      <div class="analysis-info-row">
+        <span>Logically Complete</span>
+        <span id="analysis-complete">—</span>
+      </div>
+      <div class="analysis-info-row">
+        <span>Requires Guessing</span>
+        <span id="analysis-guessing">—</span>
+      </div>
+    </div>
+
+    <!-- Technique breakdown -->
+    <div class="analysis-breakdown">
+      <div class="settings-label">Technique Breakdown</div>
+      <div id="analysis-techniques" class="analysis-technique-list"></div>
+    </div>
+
+  </aside>
+
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       DAILY CHALLENGE PANEL  (bottom sheet)
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <div id="daily-scrim" aria-hidden="true"></div>
+
+  <aside id="daily-panel"
+         aria-hidden="true"
+         aria-label="Daily challenge"
+         role="dialog"
+         aria-modal="true">
+
+    <div class="drawer-handle" aria-hidden="true"></div>
+
+    <div class="drawer-header">
+      <span class="drawer-title">Daily Challenge</span>
+      <button id="btn-daily-close" aria-label="Close daily challenge">✕</button>
+    </div>
+
+    <!-- Today's info -->
+    <div class="daily-info">
+      <div class="daily-info-row">
+        <span>Today</span>
+        <span id="daily-day-number">#1</span>
+      </div>
+      <div class="daily-info-row">
+        <span>Difficulty</span>
+        <span id="daily-difficulty">Medium</span>
+      </div>
+      <div class="daily-info-row">
+        <span>Status</span>
+        <span id="daily-today-status" class="daily-status">Not started</span>
+      </div>
+    </div>
+
+    <!-- Streaks -->
+    <div class="daily-streaks">
+      <div class="stats-summary-item">
+        <div class="stats-value" id="daily-current-streak">0</div>
+        <div class="stats-label">Streak</div>
+      </div>
+      <div class="stats-summary-item">
+        <div class="stats-value" id="daily-longest-streak">0</div>
+        <div class="stats-label">Best</div>
+      </div>
+    </div>
+
+    <!-- Calendar (last 28 days) -->
+    <div class="daily-calendar-wrap">
+      <div class="settings-label">Last 28 Days</div>
+      <div id="daily-calendar" class="daily-calendar" role="group" aria-label="Completion calendar"></div>
+    </div>
+
+    <!-- Play button -->
+    <div class="daily-actions">
+      <button id="btn-daily-play" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">▶️</span>
+        Play Today's Challenge
+      </button>
+    </div>
+
+  </aside>
+
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       STATISTICS PANEL  (bottom sheet)
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <div id="stats-scrim" aria-hidden="true"></div>
+
+  <aside id="stats-panel"
+         aria-hidden="true"
+         aria-label="Player statistics"
+         role="dialog"
+         aria-modal="true">
+
+    <div class="drawer-handle" aria-hidden="true"></div>
+
+    <div class="drawer-header">
+      <span class="drawer-title">Statistics</span>
+      <button id="btn-stats-close" aria-label="Close statistics">✕</button>
+    </div>
+
+    <!-- Summary row -->
+    <div class="stats-summary" role="group" aria-label="Overall statistics">
+      <div class="stats-summary-item">
+        <div class="stats-value" id="stats-total-games">0</div>
+        <div class="stats-label">Played</div>
+      </div>
+      <div class="stats-summary-item">
+        <div class="stats-value" id="stats-win-pct">—</div>
+        <div class="stats-label">Win %</div>
+      </div>
+      <div class="stats-summary-item">
+        <div class="stats-value" id="stats-current-streak">0</div>
+        <div class="stats-label">Streak</div>
+      </div>
+      <div class="stats-summary-item">
+        <div class="stats-value" id="stats-longest-streak">0</div>
+        <div class="stats-label">Best</div>
+      </div>
+    </div>
+
+    <!-- Per-difficulty table -->
+    <div class="stats-table-wrap">
+      <table class="stats-table" aria-label="Statistics by difficulty">
+        <thead>
+          <tr>
+            <th scope="col">Difficulty</th>
+            <th scope="col">Won</th>
+            <th scope="col">Lost</th>
+            <th scope="col">Best</th>
+            <th scope="col">Avg</th>
+          </tr>
+        </thead>
+        <tbody id="stats-table-body">
+          <tr><td>Easy</td><td id="stats-easy-won">0</td><td id="stats-easy-lost">0</td><td id="stats-easy-best">—</td><td id="stats-easy-avg">—</td></tr>
+          <tr><td>Medium</td><td id="stats-medium-won">0</td><td id="stats-medium-lost">0</td><td id="stats-medium-best">—</td><td id="stats-medium-avg">—</td></tr>
+          <tr><td>Hard</td><td id="stats-hard-won">0</td><td id="stats-hard-lost">0</td><td id="stats-hard-best">—</td><td id="stats-hard-avg">—</td></tr>
+          <tr><td>Expert</td><td id="stats-expert-won">0</td><td id="stats-expert-lost">0</td><td id="stats-expert-best">—</td><td id="stats-expert-avg">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Extra stats -->
+    <div class="stats-extras">
+      <div class="stats-extra-row">
+        <span>Total Play Time</span>
+        <span id="stats-total-time">00:00</span>
+      </div>
+      <div class="stats-extra-row">
+        <span>Hints Used</span>
+        <span id="stats-hints-used">0</span>
+      </div>
+    </div>
+
+    <!-- Reset -->
+    <div class="stats-actions">
+      <button id="btn-stats-reset" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">🗑️</span>
+        Reset Statistics
+      </button>
+    </div>
+
+  </aside>
+
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       IMPORT PUZZLE MODAL
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <div id="import-overlay"
+       role="dialog"
+       aria-modal="true"
+       aria-hidden="true"
+       aria-labelledby="import-title">
+    <div id="import-modal">
+      <h2 id="import-title">Import Puzzle</h2>
+      <p class="import-description">Paste an 81-character puzzle string. Use digits 1-9 for clues and 0 or . for empty cells.</p>
+      <textarea id="import-input"
+                rows="4"
+                placeholder="530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+                aria-label="Puzzle string input"
+                spellcheck="false"
+                autocomplete="off"></textarea>
+      <div id="import-status" class="import-status" aria-live="polite"></div>
+      <div class="import-actions">
+        <button id="import-btn-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="import-btn-validate" class="btn btn-secondary">Validate</button>
+        <button id="import-btn-load" class="btn btn-primary" disabled>Load Puzzle</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       GENERAL-PURPOSE MODAL  (win, confirm, errors)
+       ════════════════════════════════════════════════════════════════════ -->
+
+  <div id="modal-overlay"
+       role="dialog"
+       aria-modal="true"
+       aria-hidden="true"
+       aria-labelledby="modal-title"
+       aria-describedby="modal-body">
+    <div id="modal" role="document">
+      <h2 id="modal-title"></h2>
+      <div id="modal-body"></div>
+      <div id="modal-footer"></div>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       SCRIPTS  — single bundled entry point (ES module build)
+       ════════════════════════════════════════════════════════════════════ -->
+  <script src="dist/main.js"></script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js').then(function (reg) {
+          // Check for updates on each page load
+          reg.addEventListener('updatefound', function () {
+            var newWorker = reg.installing;
+            newWorker.addEventListener('statechange', function () {
+              if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                // New version available — show update toast
+                var toast = document.getElementById('sw-update-toast');
+                if (toast) {
+                  toast.classList.add('visible');
+                  toast.setAttribute('aria-hidden', 'false');
+                }
+              }
+            });
+          });
+        }).catch(function (err) {
+          console.log('[SW] Registration failed:', err);
+        });
+      });
+    }
+  </script>
+
+  <!-- Screen reader live regions ─────────────────────────────────────── -->
+  <div id="sr-announce"
+       role="status"
+       aria-live="assertive"
+       aria-atomic="true"
+       class="sr-only"></div>
+
+  <div id="sr-status"
+       aria-live="polite"
+       aria-atomic="true"
+       class="sr-only"></div>
+
+  <!-- Update notification toast -->
+  <div id="sw-update-toast"
+       role="alert"
+       aria-hidden="true"
+       aria-live="polite">
+    <span>Update available</span>
+    <button id="sw-update-btn" onclick="location.reload()">Refresh</button>
+    <button id="sw-dismiss-btn" aria-label="Dismiss"
+            onclick="this.parentElement.classList.remove('visible');this.parentElement.setAttribute('aria-hidden','true')">✕</button>
+  </div>
+
+</body>
+</html>

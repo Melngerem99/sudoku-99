@@ -1,0 +1,22 @@
+{
+  "name": "sudoku-99",
+  "version": "1.0.0",
+  "description": "Modern Sudoku — hints, pencil marks, undo/redo, dark mode, PWA",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --outfile=web/dist/main.js --sourcemap --target=es2020 --format=iife",
+    "build:test": "esbuild src/main.ts --bundle --outfile=web/dist/test-bundle.cjs --format=cjs --platform=node",
+    "build:watch": "esbuild src/main.ts --bundle --outfile=web/dist/main.js --sourcemap --target=es2020 --format=iife --watch",
+    "pretest": "npm run build:test",
+    "test": "node web/tests/run.js",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run build && npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

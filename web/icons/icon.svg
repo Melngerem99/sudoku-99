@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="#4361ee"/>
+  
+  <!-- 3x3 grid lines (white) representing Sudoku -->
+  <!-- Outer border -->
+  <rect x="80" y="80" width="352" height="352" rx="16" fill="none" stroke="#ffffff" stroke-width="12"/>
+  
+  <!-- Vertical dividers -->
+  <line x1="197" y1="80" x2="197" y2="432" stroke="#ffffff" stroke-width="6" opacity="0.5"/>
+  <line x1="315" y1="80" x2="315" y2="432" stroke="#ffffff" stroke-width="6" opacity="0.5"/>
+  
+  <!-- Horizontal dividers -->
+  <line x1="80" y1="197" x2="432" y2="197" stroke="#ffffff" stroke-width="6" opacity="0.5"/>
+  <line x1="80" y1="315" x2="432" y2="315" stroke="#ffffff" stroke-width="6" opacity="0.5"/>
+  
+  <!-- Center digit "9" -->
+  <text x="256" y="296" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+        font-size="180" font-weight="800" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">9</text>
+</svg>
