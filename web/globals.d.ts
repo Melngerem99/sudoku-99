@@ -330,26 +330,6 @@ interface ServiceWorkerGlobalScope {
 }
 
 
-// ─── DOM Helpers (dom-helpers.js) ───────────────────────────────────────────
-
-interface DOMHelpersAPI {
-  $el(id: string): HTMLElement | null;
-  $btn(id: string): HTMLButtonElement | null;
-  $input(id: string): HTMLInputElement | null;
-  $select(id: string): HTMLSelectElement | null;
-  setText(id: string, value: string | number): void;
-  show(el: HTMLElement | null): void;
-  hide(el: HTMLElement | null): void;
-  enable(btn: HTMLButtonElement | null): void;
-  disable(btn: HTMLButtonElement | null): void;
-}
-
-declare var DOM: DOMHelpersAPI;
-
-interface Window {
-  DOM: DOMHelpersAPI;
-}
-
 
 // ─── Statistics Controller (statistics-controller.js) ───────────────────────
 

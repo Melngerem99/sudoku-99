@@ -9,13 +9,16 @@
  *   install  → pre-cache all app assets
  *   activate → delete old versioned caches
  *   fetch    → serve from cache, fall back to network (then cache the response)
+ *
+ * NOTE: This file is a build template. The generated output is web/sw.js.
+ * Edit this file — not web/sw.js — to change service worker behaviour.
  */
 
 /** @type {ServiceWorkerGlobalScope} */
 // @ts-ignore — ServiceWorkerGlobalScope is the correct type for `self` in a SW context
 const sw = /** @type {any} */ (self);
 
-const CACHE_VERSION = 'sudoku-v2';
+const CACHE_VERSION = '__CACHE_VERSION__';
 
 const PRECACHE_ASSETS = [
   './index.html',

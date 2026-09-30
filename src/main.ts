@@ -22,7 +22,6 @@ import * as GeneratorModule from './services/generator';
 
 // ─── UI Helpers ─────────────────────────────────────────────────────────────
 
-import * as DOMModule from './ui/dom-helpers';
 import * as UIModule from './ui/ui';
 
 // ─── Controllers ────────────────────────────────────────────────────────────
@@ -43,9 +42,9 @@ import { init as initGame } from './game-controller';
 export const VERSION = '1.0.0';
 
 if (typeof window !== 'undefined') {
-  // These shims allow existing IIFE-based controllers and script.js
-  // to continue using window.Solver, window.Library, etc.
-  // They will be removed in Phase 4.6 when all code is modularized.
+  // These shims expose core modules and controllers on window.*
+  // so the test suite (test-bundle.cjs) can access them as globals.
+  // window.DOM has been removed — it had no callers outside main.ts.
 
   (window as any).Solver = {
     isValid: SolverModule.isValid,
@@ -87,17 +86,6 @@ if (typeof window !== 'undefined') {
     avgTime: StatisticsModule.avgTime,
   };
 
-  (window as any).DOM = {
-    $el: DOMModule.$el,
-    $btn: DOMModule.$btn,
-    $input: DOMModule.$input,
-    $select: DOMModule.$select,
-    setText: DOMModule.setText,
-    show: DOMModule.show,
-    hide: DOMModule.hide,
-    enable: DOMModule.enable,
-    disable: DOMModule.disable,
-  };
 
   (window as any).UI = {
     init: UIModule.init,
