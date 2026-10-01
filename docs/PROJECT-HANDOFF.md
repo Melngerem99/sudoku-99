@@ -1,58 +1,61 @@
- # Sudoku-99 Project Handoff
+# Sudoku-99 Project Handoff
 
-## Repository
-Source of truth: WSL Ubuntu repository
+## Current Product
+
+Sudoku-99 is a local-first Progressive Web App. The web application in `src/` and `web/` is the active product; the Qt/C++ application is archived.
 
 ## Completed
 
-- TypeScript migration
-- Accessibility improvements
-- Documentation overhaul
-- Bundle minification
-- Deferred script loading
-- Service worker build refactor
-- Window shim audit
-- DOM shim removal
-- Phase 10.0 Pause/Resume implementation, including imported-game persistence, foreground/background timing, modal focus restoration, and date-bound daily continuation
+- TypeScript migration, strict typechecking, bundle optimization, and service-worker build refactor
+- Accessibility foundation and accessibility audit backlog
+- Phase 9.0 Feature Gap Assessment
+- Phase 10.0 Pause/Resume, including imported-game persistence and background pause behavior
+- Daily session restore across UTC rollover and continuation of unfinished prior-day challenges
+- Repository screenshots refreshed for dark desktop, light desktop, and mobile layouts
+- Window shim audit, DOM shim cleanup, and technique-splitting feasibility study
 
-## Verification
+## Verification and Bundle
 
-- `npm run build` ✅
-- `npm run typecheck` ✅
-- `npm test` ✅
-- `npm run verify` ✅
+- `npm run build` passes
+- `npm run typecheck` passes
+- `npm test` passes: **400 tests**
+- `npm run verify` passes
+- Production bundle: approximately **91 KB raw / 27 KB gzip**
+- Node.js requirement: 18 or newer
 
-400 tests passing.
-
-Manual Phase 10.0 keyboard/screen-reader and installed-PWA checks on iOS Safari and Android Chrome remain outstanding.
-
-## Current Bundle
-
-- ~88 KB raw
-- ~25 KB gzip
-
-## Investigations Already Completed
+## Closed Investigations
 
 ### Window Shim Audit
 
-Result:
-- Only `window.DOM` was removable.
-- Remaining globals are used by test infrastructure.
-- Additional removals provide negligible bundle savings.
+Only the unused `window.DOM` shim was removable. Remaining compatibility globals are retained for the existing browser-console and test interfaces; further removals were deferred as low-value cleanup.
 
-Decision: **DEFER**
+### Technique Splitting Feasibility
 
-### Technique Splitting Feasibility Study
+Splitting `src/core/techniques.ts` could reduce module size but requires refactoring generator, solve-path, controller, and test dependencies. Estimated effort was 13–17 hours; deferred until a concrete maintenance or performance need justifies it.
 
-Result:
-- Potential saving ~19.7 KB raw.
-- Requires async refactor through generator, computePath, controllers, and tests.
-- Estimated effort 13–17 hours.
+## Open Product and Release Work
 
-Decision: **DEFER**
+- Improve mobile cell and numpad touch target sizing
+- Complete grid keyboard navigation and roving focus behavior
+- Add consistent focus containment and restoration across all modal panels
+- Review pencil-mark contrast in both themes
+- Complete manual screen-reader checks (NVDA/VoiceOver) and installed-PWA interruption checks on iOS Safari and Android Chrome
+- Consider the optional first-game orientation and post-game performance history from the feature-gap assessment
 
-## Not Yet Executed
+Automated verification is green, but manual accessibility and installed-device acceptance remain outstanding. Do not describe the app as fully WCAG-conformant until those items are resolved and verified.
 
-### Phase 9.0 Feature Gap Assessment
+## Current Screenshots
 
-Review the application from a user perspective and identify the highest-value missing features.
+- [Dark desktop](../images/screenshot.png)
+- [Light desktop](../images/screenshot-light.png)
+- [Mobile](../images/screenshot-mobile.png)
+
+## Local Development
+
+```sh
+npm ci
+npm run build
+python3 -m http.server 8000 --directory web
+```
+
+Open <http://localhost:8000>. Use `npm run verify` for the complete build, typecheck, and test gate.

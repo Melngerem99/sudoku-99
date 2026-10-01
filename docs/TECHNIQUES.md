@@ -1,8 +1,8 @@
 # Sudoku Solving Techniques Reference
 
-This document describes all solving techniques implemented (and planned) in the hint system, ordered from simplest to most complex.
+This document describes the 22 solving techniques implemented in the hint system, ordered from simplest to most complex.
 
-## Currently Implemented (16 techniques)
+## Implemented (22 techniques)
 
 ### Level 1 — Basic
 
@@ -97,7 +97,7 @@ All empty cells have exactly 2 candidates except one with 3. The extra digit bre
 
 ---
 
-## Planned (6 techniques)
+## Additional Implemented Techniques
 
 ### Level 3 (continued)
 

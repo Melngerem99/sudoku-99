@@ -3,8 +3,7 @@ const h = require('./helpers');
 h.loadAllModules();
 
 h.describe('Difficulty.analyze — Easy classification', function () {
-  var r = Solver.generate('easy');
-  var path = StepSolver.computePath(r.puzzle);
+  var path = StepSolver.computePath(h.FIXTURE_PUZZLE);
   var result = Difficulty.analyze(path);
   h.assertEqual(result.label, 'Easy', 'Easy puzzle classified as Easy');
   h.assert(result.hardestTier <= 1, 'Easy has tier <= 1');

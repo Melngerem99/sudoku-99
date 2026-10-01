@@ -1,28 +1,55 @@
-# sudoku-qt
+# Sudoku-99
 
-Sudoku game with solver based on Qt
+Sudoku-99 is a local-first Sudoku game for the web. Generate puzzles, track your play, explore solving techniques, and keep playing offline after the app has loaded once.
 
-The interface refers to steam game [sudoku universe](https://store.steampowered.com/app/733070/Sudoku_Universe/)
+![Sudoku-99 in dark mode on desktop](images/screenshot.png)
 
-![](../dev/images/sudoku.gif)
+| Light theme | Mobile layout |
+|---|---|
+| ![Sudoku-99 in light mode](images/screenshot-light.png) | ![Sudoku-99 at a 375px mobile viewport](images/screenshot-mobile.png) |
 
-## Features:
+## Features
 
-- conflict detection
-- sudoku solver
+- Generated puzzles with Easy, Medium, Hard, and Expert difficulties
+- Daily Challenges with a UTC reset, progress, completion history, and shareable results
+- Pause and Resume for timed games; backgrounding pauses the clock and requires an explicit resume
+- Hints with technique explanations, candidate highlights, and a step-by-step solver
+- Statistics for wins, losses, times, hints, mistakes, and streaks
+- Local Puzzle Library with filters and favorites
+- Puzzle import, export, and URL sharing
+- Undo/redo, pencil marks, conflict detection, and solution reveal
+- Light and dark themes, offline PWA support, and locally saved progress
+- Accessibility foundations including keyboard controls, ARIA labels and announcements, visible focus, and reduced-motion support
 
-## Algorithm
+Further accessibility work, including mobile touch targets, keyboard navigation, modal focus containment, and pencil-mark contrast, remains open. See the [project handoff](docs/PROJECT-HANDOFF.md).
 
-- Solving: https://github.com/x-codingman/sudo
-- Generating: 
+## Run Locally
 
-## Prerequisites
+Requirements: Node.js 18 or newer and Python 3.
 
--   [Qt 5.13 (Open Source)](https://www.qt.io/download)
+```sh
+npm ci
+npm run build
+python3 -m http.server 8000 --directory web
+```
 
-## Building and Running
+Open <http://localhost:8000>. The service worker requires a secure context; `localhost` is supported. After the first load, the app shell and game assets are available offline.
 
-After checking out the project, the simplest way to build and run is through Qt Creator:
+## Development
 
-1. Open the project file, *sudoku.pro* in the project root.
-2. Build the project.
+```sh
+npm run build       # Production bundle and service worker
+npm run typecheck   # TypeScript checks
+npm test            # Automated tests
+npm run verify      # Build, typecheck, and tests
+```
+
+The production bundle is written to `web/dist/main.js`. The web application is implemented in `src/`; the Qt/C++ application is archived.
+
+## Documentation
+
+- [Project handoff and current status](docs/PROJECT-HANDOFF.md)
+- [Feature gap assessment](docs/FEATURE-GAP-ASSESSMENT.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Development roadmap](docs/ROADMAP.md)
+- [Solving techniques](docs/TECHNIQUES.md)

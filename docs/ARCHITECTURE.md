@@ -31,7 +31,7 @@ All development targets the web application.
 │  - step-solver-controller.ts                                 │
 ├─────────────────────────────────────────────────────────────┤
 │  Game Controller (src/game-controller.ts)                    │
-│  - Centralized game state                                    │
+│  - Centralized game state and pause lifecycle                │
 │  - Action handlers (place, erase, undo, redo, hint)          │
 │  - Timer, win/loss, persistence routing                      │
 │  - Controller initialization + callback injection            │
@@ -40,13 +40,13 @@ All development targets the web application.
 │  - generator.ts: adaptive difficulty-aware puzzle generation  │
 │  - persistence.ts: localStorage auto-save/restore            │
 │  - statistics.ts: player performance tracking                │
-│  - daily.ts: seeded PRNG daily challenges                    │
+│  - daily.ts: seeded PRNG daily challenges and date-bound save │
 │  - library.ts: puzzle save/browse/filter                     │
 │  - import-export.ts: puzzle I/O, URL sharing                 │
 ├─────────────────────────────────────────────────────────────┤
 │  Core (src/core/)                                            │
 │  - solver.ts: validate, solve, generate, count solutions     │
-│  - techniques.ts: 22 detectors, getHint, buildCandidates     │
+│  - techniques.ts: 22 implemented detectors, getHint          │
 │  - step-solver.ts: logical solve path computation            │
 │  - difficulty.ts: weighted scoring classification            │
 │  - Pure functions, no DOM dependency                         │
@@ -78,7 +78,7 @@ src/main.ts (entry + shims + bootstrap)
 │   ├── src/ui/ui.ts → solver.ts
 │   ├── src/ui/dom-helpers.ts
 │   └── src/controllers/* → services/*, core/*, ui/*
-└── Window shims (17 backward-compat globals)
+└── Window shims (16 backward-compat globals)
 ```
 
 ## State Model
@@ -96,6 +96,8 @@ let activeDigit: number | null;        // numpad highlight
 let pencilMode: boolean;
 let mistakes: number;
 let timerSeconds: number;
+let pauseReasons: Set<'user' | 'background' | 'step-solver'>;
+let activeDailyDateKey: string | null;
 let gameOver: boolean;
 let gameWon: boolean;
 let history: Snapshot[];               // undo stack
@@ -106,36 +108,36 @@ let future: Snapshot[];                // redo stack
 
 - **Bundler:** esbuild (IIFE bundle for production, CJS for tests)
 - **Language:** TypeScript (`strict: true`, `exactOptionalPropertyTypes: true`)
-- **Tests:** Custom Node.js runner (330 tests, ~6s)
+- **Tests:** Custom Node.js runner (400 tests)
 - **Type checking:** `tsc --noEmit`
 
 ```
-npm run build      → web/dist/main.js (164kb IIFE)
-npm run build:test → web/dist/test-bundle.cjs (156kb CJS)
+npm run build      → web/dist/main.js (~91KB IIFE, ~27KB gzip)
+npm run build:test → web/dist/test-bundle.cjs (test bundle)
 npm run typecheck  → tsc --noEmit (strict mode)
-npm test           → 330 tests
+npm test           → 400 tests
 npm run verify     → build + typecheck + test
 ```
 
 ## File Map
 
-| Path | Role | Lines |
-|------|------|-------|
-| `src/core/solver.ts` | Solver engine | 135 |
-| `src/core/techniques.ts` | 22 technique detectors | 1,680 |
-| `src/core/step-solver.ts` | Solve path computation | 120 |
-| `src/core/difficulty.ts` | Difficulty classification | 82 |
-| `src/services/generator.ts` | Adaptive generation | 190 |
-| `src/services/daily.ts` | Daily challenge system | 183 |
-| `src/services/persistence.ts` | Auto-save/restore | 103 |
-| `src/services/statistics.ts` | Performance tracking | 113 |
-| `src/services/library.ts` | Puzzle library | 125 |
-| `src/services/import-export.ts` | Puzzle I/O | 95 |
-| `src/ui/ui.ts` | DOM rendering layer | 310 |
-| `src/ui/dom-helpers.ts` | Typed DOM access | 40 |
-| `src/controllers/*.ts` | 6 panel controllers | 892 total |
-| `src/game-controller.ts` | Main game logic | 1,020 |
-| `src/main.ts` | Entry + shims + bootstrap | 200 |
-| `web/style.css` | Full stylesheet | ~700 |
-| `web/index.html` | Markup structure | ~740 |
-| `web/sw.js` | Service worker | 119 |
+| Path | Role |
+|------|------|
+| `src/core/solver.ts` | Solver engine |
+| `src/core/techniques.ts` | 22 technique detectors |
+| `src/core/step-solver.ts` | Solve path computation |
+| `src/core/difficulty.ts` | Difficulty classification |
+| `src/services/generator.ts` | Adaptive generation |
+| `src/services/daily.ts` | Daily challenge and date-bound progress |
+| `src/services/persistence.ts` | Standard-game save/restore |
+| `src/services/statistics.ts` | Performance tracking |
+| `src/services/library.ts` | Puzzle library |
+| `src/services/import-export.ts` | Puzzle I/O |
+| `src/ui/ui.ts` | DOM rendering and panels |
+| `src/ui/dom-helpers.ts` | Typed DOM access |
+| `src/controllers/*.ts` | Six panel controllers |
+| `src/game-controller.ts` | Main game logic, timer, and pause lifecycle |
+| `src/main.ts` | Entry, shims, and bootstrap |
+| `web/style.css` | Application stylesheet |
+| `web/index.html` | Markup structure |
+| `scripts/sw.template.js` | Service-worker template |

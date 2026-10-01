@@ -1,5 +1,7 @@
 # Sudoku-99 TypeScript & ES Module Migration — Completion Report
 
+> Historical snapshot: this report records metrics at migration completion (330 tests and a 164 KB bundle). For current verification, bundle size, release status, and follow-up work, see [PROJECT-HANDOFF.md](PROJECT-HANDOFF.md).
+
 ## 1. Executive Summary
 
 The Sudoku-99 application has been fully migrated from a legacy IIFE/global-variable JavaScript architecture to a modern TypeScript ES module architecture with bundled output.

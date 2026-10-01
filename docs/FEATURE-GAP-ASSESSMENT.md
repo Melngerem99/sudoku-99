@@ -5,9 +5,11 @@
 
 ## Project Understanding
 
-Sudoku-99 is an offline-capable Sudoku web app and the active product in this repository; the Qt desktop implementation is archived. The current TypeScript app already supports generated and daily puzzles, a solver and hints, pencil marks, undo/redo, step-by-step solving, puzzle analysis, save/resume, a local puzzle library, import/export and URL sharing, statistics, themes, and offline PWA use. The supplied current baseline is 330 passing tests and a bundle of approximately 88 KB raw / 25 KB gzip.
+Sudoku-99 is an offline-capable Sudoku web app and the active product in this repository; the Qt desktop implementation is archived. The current TypeScript app already supports generated and daily puzzles, a solver and hints, pencil marks, undo/redo, step-by-step solving, puzzle analysis, pause/resume, a local puzzle library, import/export and URL sharing, statistics, themes, and offline PWA use. Current verification is 400 passing tests; the production bundle is approximately 91 KB raw / 27 KB gzip.
 
-The product therefore has a broad play-and-analysis foundation. The stated audience priority is players focused on competitive improvement. The largest remaining opportunities are trustworthy timed sessions and meaningful personal progress feedback, rather than adding another core Sudoku engine feature or online competition.
+The product therefore has a broad play-and-analysis foundation. The stated audience priority is players focused on competitive improvement. The largest remaining opportunities are meaningful personal progress feedback and first-game orientation, rather than adding another core Sudoku engine feature or online competition.
+
+The current automated baseline is 400 passing tests. Phase 10.0 has since implemented the pause/resume opportunity; accessibility and installed-device acceptance work remains open in the [project handoff](PROJECT-HANDOFF.md).
 
 ## Assessment Method
 
@@ -23,19 +25,19 @@ Reviewed the handoff, README, all available Kiro steering/spec files, and all pr
 
 ## Ranked Opportunities
 
-### FGA-01 — Add an explicit pause/resume state
+### FGA-01 — Add an explicit pause/resume state (Completed)
 
 **Priority:** P1  
 **Player value:** High  
 **Effort:** Small to medium
 
-There is no pause or resume action in the current game interface or controller. The timer interval increments while a game is active and is stopped on game completion; it has no paused state or visibility handling. A player interrupted during a timed session cannot intentionally stop elapsed play time.
+**Assessment-time finding:** The timer had no pause state or visibility handling, so a player interrupted during a timed session could not stop elapsed play time.
 
-**Recommendation:** Add a clear pause/resume control for standard and daily games. A paused state should freeze the timer, prevent board input, be restored consistently after reload, and announce the state to assistive technology. Decide whether switching away from the tab pauses automatically or whether only explicit pause affects the clock.
+**Recommendation:** Completed in Phase 10.0. The toolbar Pause/Resume control freezes active time and board changes; backgrounding pauses until explicit resume; standard, imported, and date-bound daily progress restore consistently. The selected clock contract and implementation details are recorded in [the Phase 10.0 plan](PHASE-10.0-PAUSE-RESUME-PLAN.md).
 
-**Success check:** A player can pause, leave and return, and resume with the same board and active-play time; no input changes the board while paused.
+**Success check:** Covered by controller and persistence tests; `npm run verify` passes with 400 tests. Manual screen-reader and installed-PWA interruption checks remain outstanding.
 
-**Evidence:** `web/index.html` toolbar has no pause control; `src/game-controller.ts` timer lifecycle (`startTimer`, `stopTimer`, `endGame`) has no paused state; `src/services/persistence.ts` does not serialize one.
+**Historical evidence:** The assessment identified the absence of a pause control and paused-save field in the baseline reviewed on 2026-09-30.
 
 ### FGA-02 — Add post-game performance review and local history
 
@@ -89,7 +91,7 @@ The current app is standard 9×9 Sudoku. Variants such as diagonal or killer Sud
 
 ## Recommended Sequence
 
-1. Define and implement pause/resume semantics, including persistence and daily-game behavior.
+1. ~~Define and implement pause/resume semantics, including persistence and daily-game behavior.~~ **Completed (Phase 10.0).**
 2. Add a post-game personal-performance review and local recent-session history.
 3. Add a small, optional first-game orientation and test it with new players.
 4. Validate whether technique learning is a primary audience need; prototype a narrow practice mode if so.
@@ -102,9 +104,9 @@ Accounts, cloud sync, global leaderboards, multiplayer, and social competition a
 ## Assumptions To Validate
 
 - The user specified competitive improvement as the priority. Confirm whether that means self-improvement only or whether future online competition is desired; this assessment assumes self-improvement.
-- Timed play is meaningful enough that pause behavior matters, but the desired clock semantics (active time vs. wall-clock time) need a product decision.
+- Timed play is meaningful enough that pause behavior matters. Phase 10.0 selected foreground active-time semantics, with explicit resume after backgrounding.
 - Recommendations should preserve the local-first, offline-capable product model.
 
 ## Documentation Note
 
-`README.md` still describes the earlier Qt/C++ project, while the Kiro docs and newer project reports describe the TypeScript web app. Some roadmap/spec content also predates implemented features, and bundle-size figures differ from the current handoff. Treat those differences as documentation maintenance, not missing player features; refresh the README and reconcile metrics separately when convenient.
+The README and current handoff now describe the web application and link to current screenshots. Several Kiro specs and the migration completion report are historical planning artifacts; refer to the current handoff for release status and verification metrics.
