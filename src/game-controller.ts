@@ -1166,9 +1166,11 @@ function wireUI() {
   // Global keyboard shortcuts
   document.addEventListener("keydown", (e) => {
     var tgt = e.target as any;
-    if (tgt.tagName === "BUTTON" || tgt.tagName === "INPUT") return;
-    if (isPaused()) return;
     const key = e.key;
+    if (tgt.tagName === "BUTTON" || tgt.tagName === "INPUT") return;
+    if (tgt.getAttribute?.("role") === "gridcell" &&
+        ((key >= "1" && key <= "9") || key === "0" || key === "Backspace" || key === "Delete")) return;
+    if (isPaused()) return;
 
     if (key >= "1" && key <= "9") {
       activeDigit = +key;

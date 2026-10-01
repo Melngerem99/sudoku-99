@@ -374,9 +374,8 @@ html.dark #btn-dark::before { content: "☀️"; }
 #sudoku-grid {
   position: absolute;
   inset: 0;
-  display: grid;
-  grid-template-columns: repeat(9, 1fr);
-  grid-template-rows: repeat(9, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 2px;
   background: var(--cell-border);
   /* thick 3×3 box lines drawn via cell borders */
@@ -384,6 +383,14 @@ html.dark #btn-dark::before { content: "☀️"; }
   border-radius: var(--r-card);
   overflow: hidden;
   box-shadow: var(--shadow-md);
+}
+
+.grid-row {
+  display: grid;
+  flex: 1 1 0;
+  min-height: 0;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 2px;
 }
 
 /* ── Individual cell ── */

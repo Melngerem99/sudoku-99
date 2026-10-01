@@ -123,7 +123,10 @@ class MockDocument {
     this.register('pause-title', 'h2', pause);
     this.register('pause-description', 'p', pause);
     this.register('btn-pause-resume', 'button', pause);
-    this.register('sudoku-grid', 'section', this.getElementById('app'));
+    const grid = this.register('sudoku-grid', 'section', this.getElementById('app'));
+    grid.setAttribute('role', 'grid');
+    grid.setAttribute('aria-rowcount', '9');
+    grid.setAttribute('aria-colcount', '9');
     this.register('numpad', 'section', this.getElementById('app'));
     this.register('daily-panel', 'aside', this.body);
     this.register('btn-daily-close', 'button', this.getElementById('daily-panel'));
@@ -229,8 +232,10 @@ function loadApp(storage = h.createMockStorage(), difficulty = 'medium') {
   return { app, clock, document: global.document, storage };
 }
 
-function dispatchKey(target, key) {
-  target.dispatchEvent({ type: 'keydown', key, target, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } });
+function dispatchKey(target, key, modifiers = {}) {
+  const event = { ...modifiers, type: 'keydown', key, target, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  target.dispatchEvent(event);
+  return event;
 }
 
 h.describe('GameController — pause/resume and active-time accounting', function () {
@@ -257,6 +262,67 @@ h.describe('GameController — pause/resume and active-time accounting', functio
   pauseButton.click();
   assertEqual(global.Persistence.load().timerSeconds, 21, 'pause saves only elapsed active timer ticks');
   assertEqual(clock.intervals.size, 0, 'second pause still stops all timer intervals');
+});
+
+h.describe('GameController — accessible grid keyboard navigation', function () {
+  const { document } = loadApp();
+  const grid = document.getElementById('sudoku-grid');
+  const cells = global.UI.cells;
+
+  assertEqual(grid.getAttribute('role'), 'grid', 'board exposes grid role');
+  assertEqual(grid.getAttribute('aria-rowcount'), '9', 'grid exposes row count');
+  assertEqual(grid.getAttribute('aria-colcount'), '9', 'grid exposes column count');
+  assertEqual(grid.children.length, 9, 'grid contains nine semantic rows');
+  assertEqual(grid.children[0].getAttribute('role'), 'row', 'grid row exposes row role');
+  assertEqual(grid.children[0].children[0].getAttribute('role'), 'gridcell', 'row contains grid cells');
+  assertEqual(grid.children[0].children[0].getAttribute('aria-colindex'), '1', 'cell exposes column index');
+  assertEqual(cells.filter((cell) => cell.getAttribute('tabindex') === '0').length, 1, 'only one cell is in the Tab sequence');
+  assertEqual(cells[0].getAttribute('tabindex'), '0', 'first cell is the initial Tab stop');
+  assertEqual(cells[1].getAttribute('tabindex'), '-1', 'other cells are excluded from the Tab sequence');
+
+  let event = dispatchKey(cells[0], 'ArrowRight');
+  assertEqual(event.defaultPrevented, true, 'arrow navigation prevents page scrolling');
+  assertEqual(document.activeElement, cells[1], 'right arrow moves DOM focus');
+  assertEqual(cells[1].getAttribute('aria-selected'), 'true', 'focused cell is selected');
+  assertEqual(cells[1].getAttribute('tabindex'), '0', 'selected cell becomes the only Tab stop');
+  assertEqual(cells[0].getAttribute('tabindex'), '-1', 'previous cell leaves the Tab sequence');
+
+  dispatchKey(cells[1], 'ArrowDown');
+  assertEqual(document.activeElement, cells[10], 'down arrow moves one row');
+  dispatchKey(cells[10], 'ArrowLeft');
+  assertEqual(document.activeElement, cells[9], 'left arrow moves one column without wrapping');
+  dispatchKey(cells[9], 'ArrowUp');
+  assertEqual(document.activeElement, cells[0], 'up arrow moves one row');
+
+  event = dispatchKey(cells[0], 'ArrowLeft');
+  assertEqual(event.defaultPrevented, true, 'left arrow is consumed at the board edge');
+  assertEqual(document.activeElement, cells[0], 'left edge does not wrap');
+  event = dispatchKey(cells[0], 'ArrowUp');
+  assertEqual(event.defaultPrevented, true, 'up arrow is consumed at the board edge');
+  assertEqual(document.activeElement, cells[0], 'top edge does not wrap');
+  cells[8].focus();
+  event = dispatchKey(cells[8], 'ArrowRight');
+  assertEqual(event.defaultPrevented, true, 'right arrow is consumed at the row edge');
+  assertEqual(document.activeElement, cells[8], 'right edge does not wrap to the next row');
+  cells[80].focus();
+  event = dispatchKey(cells[80], 'ArrowRight');
+  assertEqual(event.defaultPrevented, true, 'right arrow is consumed at the board edge');
+  assertEqual(document.activeElement, cells[80], 'last column does not wrap');
+  event = dispatchKey(cells[80], 'ArrowDown');
+  assertEqual(event.defaultPrevented, true, 'down arrow is consumed at the board edge');
+  assertEqual(document.activeElement, cells[80], 'bottom edge does not wrap');
+
+  const editableCell = cells[2];
+  const digitEvent = dispatchKey(editableCell, '4');
+  assertEqual(editableCell.querySelector('.cell-digit').textContent, '4', 'digit shortcut still enters a value');
+  assertEqual(digitEvent.defaultPrevented, false, 'digit shortcut retains its existing browser behavior');
+  dispatchKey(editableCell, 'Backspace');
+  assertEqual(editableCell.querySelector('.cell-digit').textContent, '', 'erase shortcut still clears a value');
+  dispatchKey(editableCell, 'z', { ctrlKey: true });
+  assertEqual(editableCell.querySelector('.cell-digit').textContent, '4', 'undo shortcut still works from a grid cell');
+  const pencilButton = document.getElementById('btn-pencil');
+  dispatchKey(editableCell, 'p');
+  assertEqual(pencilButton.classList.contains('active'), true, 'pencil shortcut still works from a grid cell');
 });
 
 h.describe('GameController — inactive pause dialog and Escape ownership', function () {

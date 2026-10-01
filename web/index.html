@@ -88,8 +88,9 @@
     </section>
 
     <!-- 9×9 Grid ─────────────────────────────────────────────────────────
-         Cells are injected by ui.js → buildGrid().
-         Each cell div gets: data-idx, tabindex="0", role="gridcell",
+         Cells are injected by ui.ts → buildGrid().
+         Each row gets role="row"; one selected cell has tabindex="0",
+         and all other cells use tabindex="-1" with role="gridcell",
            .pencil-marks (3×3 .mark spans), .cell-digit span.
     ────────────────────────────────────────────────────────────────────── -->
     <div id="grid-wrap">

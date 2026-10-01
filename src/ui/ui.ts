@@ -70,43 +70,66 @@ function buildGrid(): void {
   container.innerHTML = "";
   cells.length = 0;
 
-  for (let i = 0; i < 81; i++) {
-    const cell = document.createElement("div");
-    cell.className = "cell";
-    cell.dataset.idx = String(i);
-    cell.setAttribute("tabindex", "0");
-    cell.setAttribute("role", "gridcell");
-    cell.setAttribute("aria-label", `Row ${Math.floor(i / 9) + 1}, Column ${(i % 9) + 1}`);
+  for (let row = 0; row < 9; row++) {
+    const rowElement = document.createElement("div");
+    rowElement.className = "grid-row";
+    rowElement.setAttribute("role", "row");
+    rowElement.setAttribute("aria-rowindex", String(row + 1));
+    container.appendChild(rowElement);
 
-    const marks = document.createElement("div");
-    marks.className = "pencil-marks";
-    marks.setAttribute("aria-hidden", "true");
-    for (let d = 1; d <= 9; d++) {
-      const m = document.createElement("span");
-      m.className = "mark";
-      m.dataset.digit = String(d);
-      m.setAttribute("aria-hidden", "true");
-      marks.appendChild(m);
+    for (let col = 0; col < 9; col++) {
+      const i = row * 9 + col;
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.dataset.idx = String(i);
+      cell.setAttribute("tabindex", i === 0 ? "0" : "-1");
+      cell.setAttribute("role", "gridcell");
+      cell.setAttribute("aria-colindex", String(col + 1));
+      cell.setAttribute("aria-label", `Row ${row + 1}, Column ${col + 1}`);
+
+      const marks = document.createElement("div");
+      marks.className = "pencil-marks";
+      marks.setAttribute("aria-hidden", "true");
+      for (let d = 1; d <= 9; d++) {
+        const m = document.createElement("span");
+        m.className = "mark";
+        m.dataset.digit = String(d);
+        m.setAttribute("aria-hidden", "true");
+        marks.appendChild(m);
+      }
+
+      const digit = document.createElement("span");
+      digit.className = "cell-digit";
+
+      cell.appendChild(marks);
+      cell.appendChild(digit);
+      rowElement.appendChild(cell);
+      cells.push(cell);
+
+      cell.addEventListener("click", () => {
+        emit("cellClick", i);
+        if (cell.getAttribute("tabindex") === "0") cell.focus();
+      });
+      cell.addEventListener("keydown", (e) => {
+        const key = e.key;
+        if (key >= "1" && key <= "9") emit("digitInput", { idx: i, digit: +key });
+        else if (key === "Backspace" || key === "Delete" || key === "0") emit("erase", i);
+        else {
+          let nextIdx = i;
+          if (key === "ArrowRight" && col < 8) nextIdx++;
+          else if (key === "ArrowLeft" && col > 0) nextIdx--;
+          else if (key === "ArrowDown" && row < 8) nextIdx += 9;
+          else if (key === "ArrowUp" && row > 0) nextIdx -= 9;
+          else if (key !== "ArrowRight" && key !== "ArrowLeft" && key !== "ArrowDown" && key !== "ArrowUp") return;
+
+          e.preventDefault();
+          if (nextIdx !== i) {
+            emit("cellClick", nextIdx);
+            cells[nextIdx]?.focus();
+          }
+        }
+      });
     }
-
-    const digit = document.createElement("span");
-    digit.className = "cell-digit";
-
-    cell.appendChild(marks);
-    cell.appendChild(digit);
-    container.appendChild(cell);
-    cells.push(cell);
-
-    cell.addEventListener("click", () => emit("cellClick", i));
-    cell.addEventListener("keydown", (e) => {
-      const key = e.key;
-      if (key >= "1" && key <= "9") emit("digitInput", { idx: i, digit: +key });
-      else if (key === "Backspace" || key === "Delete" || key === "0") emit("erase", i);
-      else if (key === "ArrowRight") emit("cellClick", i + 1 < 81 ? i + 1 : i);
-      else if (key === "ArrowLeft")  emit("cellClick", i - 1 >= 0 ? i - 1 : i);
-      else if (key === "ArrowDown")  emit("cellClick", i + 9 < 81 ? i + 9 : i);
-      else if (key === "ArrowUp")    emit("cellClick", i - 9 >= 0 ? i - 9 : i);
-    });
   }
 }
 
@@ -148,6 +171,7 @@ export function updateCell(idx: number, board: Board, givens: Board, candidates:
   const isGiven = givens[idx] !== 0;
   const isSelected = idx === selectedIdx;
   const cands = candidates ? candidates[idx] : null;
+  cell.setAttribute("tabindex", isSelected || (selectedIdx === null && idx === 0) ? "0" : "-1");
 
   // ARIA state attributes (Requirements 2.1, 6.7)
   const row = Math.floor(idx / 9) + 1;
