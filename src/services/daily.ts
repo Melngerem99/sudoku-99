@@ -8,6 +8,7 @@ type Board = number[];
 
 const HISTORY_KEY = "sudoku-daily-history";
 const PROGRESS_PREFIX = "sudoku-daily-prog-";
+const ACTIVE_PROGRESS_KEY = "sudoku-daily-active-date";
 const PROGRESS_VERSION = 1;
 const EPOCH_YEAR = 2025;
 const EPOCH_MONTH = 0;
@@ -122,15 +123,55 @@ function generateSeeded(seed: number, difficulty: string): { puzzle: Board; solu
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
-export function getTodayPuzzle(): { puzzle: Board; solution: Board; difficulty: string; dateKey: string; dayNumber: number } {
-  const dateKey = getDateKey();
+export function getPuzzleForDate(dateKey: string): { puzzle: Board; solution: Board; difficulty: string; dateKey: string; dayNumber: number } {
   const seed = dateKeyToSeed(dateKey);
   const difficulty = getDifficultyForDate(dateKey);
   const result = generateSeeded(seed, difficulty);
   return { puzzle: result.puzzle, solution: result.solution, difficulty, dateKey, dayNumber: getDayNumber(dateKey) };
 }
 
+export function getTodayPuzzle(): { puzzle: Board; solution: Board; difficulty: string; dateKey: string; dayNumber: number } {
+  return getPuzzleForDate(getDateKey());
+}
+
 function progressKey(dateKey = getDateKey()): string { return PROGRESS_PREFIX + dateKey; }
+
+export function loadMostRecentProgressBefore(dateKey = getDateKey()): { dateKey: string; progress: any } | null {
+  let mostRecent: { dateKey: string; progress: any } | null = null;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(PROGRESS_PREFIX)) continue;
+      const savedDate = key.slice(PROGRESS_PREFIX.length);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(savedDate) || savedDate >= dateKey) continue;
+      const progress = loadProgress(savedDate);
+      if (progress && (!mostRecent || savedDate > mostRecent.dateKey)) {
+        mostRecent = { dateKey: savedDate, progress };
+      }
+    }
+  } catch {}
+  return mostRecent;
+}
+
+export function loadActiveProgress(): { dateKey: string; progress: any } | null {
+  try {
+    const dateKey = localStorage.getItem(ACTIVE_PROGRESS_KEY);
+    if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return null;
+    const progress = loadProgress(dateKey);
+    if (progress) return { dateKey, progress };
+    localStorage.removeItem(ACTIVE_PROGRESS_KEY);
+  } catch {}
+  return null;
+}
+
+export function deactivateActiveProgress(dateKey: string | null): void {
+  if (!dateKey) return;
+  try {
+    if (localStorage.getItem(ACTIVE_PROGRESS_KEY) === dateKey) {
+      localStorage.removeItem(ACTIVE_PROGRESS_KEY);
+    }
+  } catch {}
+}
 
 export function saveProgress(state: any, dateKey = getDateKey()): void {
   try {
@@ -147,6 +188,7 @@ export function saveProgress(state: any, dateKey = getDateKey()): void {
       future: (state.future || []).slice(-20).map((snap: any) => ({ board: snap.board, candidates: snap.candidates.map((s: Set<number>) => Array.from(s)) })),
     };
     localStorage.setItem(progressKey(dateKey), JSON.stringify(data));
+    localStorage.setItem(ACTIVE_PROGRESS_KEY, dateKey);
   } catch {}
 }
 
@@ -170,7 +212,10 @@ export function loadProgress(dateKey = getDateKey()): any | null {
 }
 
 export function clearProgress(dateKey = getDateKey()): void {
-  try { localStorage.removeItem(progressKey(dateKey)); } catch {}
+  try {
+    localStorage.removeItem(progressKey(dateKey));
+    if (localStorage.getItem(ACTIVE_PROGRESS_KEY) === dateKey) localStorage.removeItem(ACTIVE_PROGRESS_KEY);
+  } catch {}
 }
 
 function loadHistory(): { completions: Record<string, any> } {

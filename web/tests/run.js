@@ -23,7 +23,8 @@ const testFiles = [
   'import-export.test.js',
   'library.test.js',
   'persistence.test.js',
-  'controllers.test.js'
+  'controllers.test.js',
+  'game-controller.test.js'
 ];
 
 let totalPassed = 0;

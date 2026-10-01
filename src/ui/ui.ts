@@ -437,6 +437,7 @@ export function init(): void {
   if (overlay) { overlay.addEventListener("click", (e) => { if (e.target === overlay) hideModal(); }); }
 
   document.addEventListener("keydown", (e) => {
+    if (e.defaultPrevented) return;
     if (e.key === "Escape") {
       hideHint();
       hideModal();

@@ -37,6 +37,8 @@ import * as StepSolverControllerModule from './controllers/step-solver-controlle
 
 import { init as initGame } from './game-controller';
 
+export { init as initGameController } from './game-controller';
+
 // ─── Window Shims (backward compatibility) ──────────────────────────────────
 
 export const VERSION = '1.0.0';

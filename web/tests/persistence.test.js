@@ -78,6 +78,58 @@ h.describe('Persistence — migrates version 1 saves', function () {
   h.assertEqual(loaded.timerSeconds, 85, 'legacy timer preserved');
 });
 
+h.describe('Persistence — imported game round-trip', function () {
+  Persistence.clear();
+  Persistence.saveImmediate({
+    board: h.FIXTURE_PUZZLE,
+    solution: h.FIXTURE_SOLUTION,
+    givens: h.FIXTURE_PUZZLE,
+    candidates: h.FIXTURE_PUZZLE.map(function () { return new Set(); }),
+    pencilMode: false,
+    mistakes: 1,
+    timerSeconds: 42,
+    paused: true,
+    gameOver: false,
+    gameWon: false,
+    emptyMode: false,
+    currentDifficulty: 'imported',
+    hintsUsedThisGame: 2,
+    history: [],
+    future: []
+  });
+
+  var loaded = Persistence.load();
+  h.assertNotNull(loaded, 'imported save is accepted');
+  h.assertEqual(loaded.currentDifficulty, 'imported', 'imported source preserved');
+  h.assertEqual(loaded.paused, true, 'imported pause state preserved');
+  h.assertEqual(loaded.timerSeconds, 42, 'imported timer preserved');
+  h.assertArrayEqual(loaded.board, h.FIXTURE_PUZZLE, 'imported board preserved');
+});
+
+h.describe('Persistence — rejects malformed current pause flag', function () {
+  Persistence.saveImmediate({
+    board: h.FIXTURE_PUZZLE,
+    solution: h.FIXTURE_SOLUTION,
+    givens: h.FIXTURE_PUZZLE,
+    candidates: h.FIXTURE_PUZZLE.map(function () { return new Set(); }),
+    pencilMode: false,
+    mistakes: 0,
+    timerSeconds: 10,
+    paused: false,
+    gameOver: false,
+    gameWon: false,
+    emptyMode: false,
+    currentDifficulty: 'medium',
+    hintsUsedThisGame: 0,
+    history: [],
+    future: []
+  });
+  var saved = JSON.parse(localStorage.getItem('sudoku-game-state'));
+  saved.paused = 'false';
+  localStorage.setItem('sudoku-game-state', JSON.stringify(saved));
+  h.assertNull(Persistence.load(), 'malformed pause flag is rejected');
+});
+
 h.describe('Persistence — clear removes data', function () {
   Persistence.saveImmediate({ board: h.FIXTURE_PUZZLE, solution: h.FIXTURE_SOLUTION, givens: h.FIXTURE_PUZZLE, candidates: h.FIXTURE_PUZZLE.map(function () { return new Set(); }), pencilMode: false, mistakes: 0, timerSeconds: 0, gameOver: false, gameWon: false, emptyMode: false, currentDifficulty: 'easy', hintsUsedThisGame: 0, history: [], future: [] });
   Persistence.clear();

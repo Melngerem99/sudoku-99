@@ -26,6 +26,8 @@ function createMockStorage() {
     getItem(k) { return store[k] || null; },
     setItem(k, v) { store[k] = String(v); },
     removeItem(k) { delete store[k]; },
+    key(i) { return Object.keys(store)[i] || null; },
+    get length() { return Object.keys(store).length; },
     clear() { store = {}; },
     _data() { return store; }
   };

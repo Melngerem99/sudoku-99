@@ -11,7 +11,7 @@ import { generate } from './services/generator';
 import { getHashPuzzle, validate, clearHash } from './services/import-export';
 import { scheduleSave as persistScheduleSave, saveImmediate, load as loadPersistence, clear as clearPersistence } from './services/persistence';
 import { recordGameStart, recordWin, recordLoss } from './services/statistics';
-import { getTodayStatus, getTodayPuzzle, loadProgress, saveProgress, clearProgress, recordCompletion, getShareText } from './services/daily';
+import { getDateKey, getTodayStatus, getPuzzleForDate, loadProgress, loadActiveProgress, saveProgress, clearProgress, deactivateActiveProgress, recordCompletion, getShareText } from './services/daily';
 import { $btn } from './ui/dom-helpers';
 import { announce, FocusTrap, setAppAriaHidden } from './ui/accessibility';
 import { init as initUI, renderBoard, setDigitCounts, setMistakes, setTimer, setActiveDigitButton, showHint as showHintUI, hideHint, showModal, flashCell, on, _closeSettingsDrawer, clearHintHighlights } from './ui/ui';
@@ -48,6 +48,9 @@ let mistakes    = 0;
 let timerSeconds = 0;
 let timerHandle: ReturnType<typeof setInterval> | null = null;
 let pauseTrap: FocusTrap | null = null;
+let pauseReturnFocus: HTMLElement | null = null;
+let pauseAppWasHidden = false;
+let pauseCoveredDialogs: Array<{ element: HTMLElement; ariaHidden: string | null; inert: boolean }> = [];
 let gameOver     = false;
 let gameWon      = false;
 let emptyMode    = false;
@@ -227,6 +230,12 @@ function resetTimer() {
   setTimer(0);
 }
 
+function leaveDailySession(): void {
+  if (dailyMode) deactivateActiveProgress(activeDailyDateKey);
+  dailyMode = false;
+  activeDailyDateKey = null;
+}
+
 function isPaused(): boolean {
   return pauseReasons.size > 0;
 }
@@ -262,9 +271,22 @@ function showPauseDialog(): void {
   const overlay = document.getElementById("pause-overlay");
   if (!overlay || overlay.classList.contains("active")) return;
 
+  rememberPauseContext();
+  overlay.inert = false;
   overlay.classList.add("active");
   overlay.setAttribute("aria-hidden", "false");
   setAppAriaHidden(true);
+  pauseCoveredDialogs = [];
+  document.querySelectorAll<HTMLElement>('[role="dialog"]').forEach((dialog) => {
+    if (dialog === overlay || dialog.getAttribute("aria-hidden") === "true") return;
+    pauseCoveredDialogs.push({
+      element: dialog,
+      ariaHidden: dialog.getAttribute("aria-hidden"),
+      inert: dialog.inert,
+    });
+    dialog.setAttribute("aria-hidden", "true");
+    dialog.inert = true;
+  });
   const resumeButton = document.getElementById("btn-pause-resume");
   if (resumeButton) {
     pauseTrap = new FocusTrap({ container: overlay, onEscape: resumeGame });
@@ -275,18 +297,59 @@ function showPauseDialog(): void {
 
 function hidePauseDialog(): void {
   const overlay = document.getElementById("pause-overlay");
-  if (!overlay || !overlay.classList.contains("active")) return;
+  const wasActive = !!overlay?.classList.contains("active");
 
   pauseTrap?.deactivate();
   pauseTrap = null;
-  overlay.classList.remove("active");
-  overlay.setAttribute("aria-hidden", "true");
-  setAppAriaHidden(pauseReasons.has('step-solver'));
-  if (!pauseReasons.has('step-solver')) document.getElementById("btn-pause")?.focus();
+  if (overlay) {
+    overlay.classList.remove("active");
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.inert = true;
+  }
+  if (!wasActive) {
+    pauseReturnFocus = null;
+    pauseAppWasHidden = false;
+    pauseCoveredDialogs = [];
+    return;
+  }
+
+  pauseCoveredDialogs.forEach(({ element, ariaHidden, inert }) => {
+    if (ariaHidden === null) element.removeAttribute("aria-hidden");
+    else element.setAttribute("aria-hidden", ariaHidden);
+    element.inert = inert;
+  });
+  pauseCoveredDialogs = [];
+  const appWasHidden = pauseAppWasHidden;
+  setAppAriaHidden(appWasHidden);
+  const returnFocus = pauseReturnFocus;
+  pauseReturnFocus = null;
+  pauseAppWasHidden = false;
+  if (returnFocus?.isConnected && !returnFocus.hidden) {
+    returnFocus.focus();
+  } else if (!appWasHidden) {
+    const pauseButton = document.getElementById("btn-pause") as HTMLButtonElement | null;
+    if (pauseButton && !pauseButton.hidden) pauseButton.focus();
+  }
+}
+
+function rememberPauseContext(): void {
+  if (pauseReturnFocus) return;
+  const active = document.activeElement as HTMLElement | null;
+  pauseReturnFocus = active && active !== document.body ? active : null;
+  pauseAppWasHidden = document.getElementById("app")?.getAttribute("aria-hidden") === "true";
+}
+
+function refreshPauseContext(): void {
+  const active = document.activeElement as HTMLElement | null;
+  pauseReturnFocus = active && active !== document.body ? active : null;
+  pauseAppWasHidden = document.getElementById("app")?.getAttribute("aria-hidden") === "true";
 }
 
 function acquirePause(reason: PauseReason): void {
   if (!isActiveTimedGame() || pauseReasons.has(reason)) return;
+  if (reason !== 'step-solver' && !pauseReasons.has('user') && !pauseReasons.has('background')) {
+    rememberPauseContext();
+  }
   pauseReasons.add(reason);
   stopTimer();
   updatePauseButton();
@@ -302,12 +365,14 @@ function releasePause(reason: PauseReason): void {
   saveCurrentStateImmediately();
 
   if (isPaused()) {
+    const overlay = document.getElementById("pause-overlay");
+    if (reason === 'step-solver' && !overlay?.classList.contains("active")) refreshPauseContext();
     if (!pauseReasons.has('step-solver')) showPauseDialog();
     return;
   }
 
-  hidePauseDialog();
   startTimer();
+  hidePauseDialog();
   if (!isPaused()) announce("Game resumed", 'polite');
 }
 
@@ -326,8 +391,8 @@ function resumeGame(): void {
     hidePauseDialog();
     return;
   }
-  hidePauseDialog();
   startTimer();
+  hidePauseDialog();
   if (!isPaused()) announce("Game resumed", 'polite');
 }
 
@@ -346,10 +411,9 @@ function handleVisibilityChange(): void {
  */
 function newGame(difficulty = currentDifficulty) {
   if (isPaused()) return;
+  leaveDailySession();
   currentDifficulty = difficulty;
   emptyMode = false;
-  dailyMode = false;
-  activeDailyDateKey = null;
 
   // Show generating state
   var badge = document.getElementById("difficulty-badge");
@@ -404,6 +468,7 @@ function newGame(difficulty = currentDifficulty) {
  */
 function loadEmptyGrid() {
   if (isPaused()) return;
+  leaveDailySession();
   emptyMode = true;
   puzzleSource = "empty";
   board     = new Array(81).fill(0);
@@ -433,8 +498,7 @@ function loadEmptyGrid() {
  */
 function importPuzzle(boardArray: Board) {
   if (isPaused()) return;
-  dailyMode = false;
-  activeDailyDateKey = null;
+  leaveDailySession();
   emptyMode = false;
   puzzleSource = "imported";
 
@@ -473,10 +537,11 @@ function importPuzzle(boardArray: Board) {
 /**
  * Start or resume today's daily challenge.
  */
-function startDaily() {
+function startDaily(dateKey = getDateKey()) {
   if (isPaused()) return;
+  if (dateKey !== getDateKey() && !loadProgress(dateKey)) return;
   // Check if already completed today
-  if (getTodayStatus() === "completed") {
+  if (dateKey === getDateKey() && getTodayStatus() === "completed") {
     showModal({
       title: "Daily Complete ✓",
       body: "You've already completed today's challenge! Come back tomorrow for a new one.",
@@ -489,12 +554,13 @@ function startDaily() {
   emptyMode = false;
   puzzleSource = "daily";
 
-  var daily = getTodayPuzzle();
+  var daily = getPuzzleForDate(dateKey);
 
   // Capture dateKey now — it won't change even if midnight UTC rolls over mid-game
   activeDailyDateKey = daily.dateKey;
   // Daily progress belongs to the date captured for this session, even if UTC changes later.
   var progress = loadProgress(activeDailyDateKey);
+  resetTimer();
 
   board     = progress ? progress.board : daily.puzzle.slice();
   solution  = daily.solution.slice();
@@ -514,7 +580,6 @@ function startDaily() {
   future      = progress && progress.future ? progress.future : [];
   currentDifficulty = daily.difficulty;
 
-  resetTimer();
   setTimer(timerSeconds);
   hideHint();
   render();
@@ -527,6 +592,7 @@ function startDaily() {
   } else {
     startTimer();
   }
+  saveDailyProgress();
   computeActualDifficulty();
   invalidateAnalysis();
 }
@@ -1051,7 +1117,8 @@ function wireUI() {
   // ─── Daily challenge panel (delegated to DailyController) ───────────────
 
   initDailyCtrl({
-    startDaily: startDaily
+    startDaily: () => startDaily(),
+    continueDaily: (dateKey: string) => startDaily(dateKey)
   });
 
   // ─── Import / Export (delegated to ImportController) ───────────────────
@@ -1157,6 +1224,13 @@ export function init() {
       // Invalid hash — clear it silently
       clearHash();
     }
+  }
+
+  // Restore an unfinished daily by its captured date, even after UTC rollover.
+  const savedDaily = loadActiveProgress();
+  if (savedDaily) {
+    startDaily(savedDaily.dateKey);
+    return;
   }
 
   // Attempt to restore saved game; fall back to new game

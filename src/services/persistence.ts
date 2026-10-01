@@ -87,7 +87,7 @@ function validate(data: any): boolean {
     if (typeof data.gameWon !== "boolean") return false;
     if (typeof data.pencilMode !== "boolean") return false;
     if (typeof data.emptyMode !== "boolean") return false;
-    if (["easy", "medium", "hard", "expert"].indexOf(data.currentDifficulty) === -1) return false;
+    if (["easy", "medium", "hard", "expert", "imported"].indexOf(data.currentDifficulty) === -1) return false;
     return true;
   } catch { return false; }
 }

@@ -1,8 +1,16 @@
 # Phase 10.0 — Pause and Resume
 
-**Status:** Implementation plan; no application changes included  
-**Source:** Top-ranked item FGA-01 in `docs/FEATURE-GAP-ASSESSMENT.md`  
+**Status:** Implementation complete; manual device/accessibility acceptance outstanding
+**Source:** Top-ranked item FGA-01 in `docs/FEATURE-GAP-ASSESSMENT.md`
 **Product priority:** Competitive self-improvement; preserve local-first and offline play
+
+## Implementation Record
+
+- Standard persistence accepts the `imported` game discriminator, so imported games restore their board and paused timer instead of being discarded.
+- The inactive pause dialog is both hidden and inert. When Pause covers another dialog, its ARIA/inert state and the prior focus target are restored after Resume or Escape. Focus returns after the toolbar Pause action becomes visible.
+- Daily progress remains stored under its captured UTC date. An active-date marker restores the same puzzle after reload across midnight; the Daily panel offers a separate Continue action for an unfinished earlier daily without replacing today's progress.
+- Controller integration tests cover pause/resume, timer intervals, blocked input, background transitions, imported-game restore, daily rollover, and covered-dialog focus/accessibility state.
+- Automated verification: `npm run verify` passes with 400 tests. Manual keyboard/screen-reader and installed-PWA checks remain outstanding.
 
 ## Goal
 

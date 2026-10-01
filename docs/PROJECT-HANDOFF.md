@@ -13,6 +13,7 @@ Source of truth: WSL Ubuntu repository
 - Service worker build refactor
 - Window shim audit
 - DOM shim removal
+- Phase 10.0 Pause/Resume implementation, including imported-game persistence, foreground/background timing, modal focus restoration, and date-bound daily continuation
 
 ## Verification
 
@@ -21,7 +22,9 @@ Source of truth: WSL Ubuntu repository
 - `npm test` ✅
 - `npm run verify` ✅
 
-330 tests passing.
+400 tests passing.
+
+Manual Phase 10.0 keyboard/screen-reader and installed-PWA checks on iOS Safari and Android Chrome remain outstanding.
 
 ## Current Bundle
 

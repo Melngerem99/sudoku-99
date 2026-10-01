@@ -2,12 +2,13 @@
  * daily-controller.ts — Daily challenge panel controller.
  */
 
-import { getHistory, getTodayStatus, getDateKey, getDayNumber, getDifficultyForDate } from '../services/daily';
+import { getHistory, getTodayStatus, getDateKey, getDayNumber, getDifficultyForDate, loadMostRecentProgressBefore } from '../services/daily';
 import { setText } from '../ui/dom-helpers';
 
 // ─── Injected callbacks ─────────────────────────────────────────────────────
 
 let startDailyFn: () => void = () => {};
+let continueDailyFn: (dateKey: string) => void = () => {};
 
 // ─── Badge ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,18 @@ function populate(): void {
     statusEl.className = "daily-status daily-status-" + status;
   }
 
+  const continueButton = document.getElementById("btn-daily-continue") as HTMLButtonElement | null;
+  const previousProgress = loadMostRecentProgressBefore(dateKey);
+  if (continueButton) {
+    continueButton.hidden = !previousProgress;
+    if (previousProgress) {
+      const previousDate = previousProgress.dateKey.split("-").map(Number);
+      const labelDate = new Date(Date.UTC(previousDate[0], previousDate[1] - 1, previousDate[2]));
+      continueButton.textContent = "Continue " + labelDate.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " Daily";
+      continueButton.dataset.dateKey = previousProgress.dateKey;
+    }
+  }
+
   setText("daily-current-streak", history.currentStreak);
   setText("daily-longest-streak", history.longestStreak);
 
@@ -101,10 +114,12 @@ export const refresh = populate;
 
 export interface DailyInitConfig {
   startDaily: () => void;
+  continueDaily: (dateKey: string) => void;
 }
 
 export function init(config: DailyInitConfig): void {
   startDailyFn = config.startDaily;
+  continueDailyFn = config.continueDaily || (() => {});
 
   const openBtn = document.getElementById("btn-daily");
   if (openBtn) openBtn.addEventListener("click", open);
@@ -114,6 +129,12 @@ export function init(config: DailyInitConfig): void {
 
   const playBtn = document.getElementById("btn-daily-play");
   if (playBtn) playBtn.addEventListener("click", () => { close(); startDailyFn(); });
+
+  const continueBtn = document.getElementById("btn-daily-continue");
+  if (continueBtn) continueBtn.addEventListener("click", () => {
+    const dateKey = (continueBtn as HTMLElement).dataset.dateKey;
+    if (dateKey) { close(); continueDailyFn(dateKey); }
+  });
 
   const scrim = document.getElementById("daily-scrim");
   if (scrim) scrim.addEventListener("click", close);

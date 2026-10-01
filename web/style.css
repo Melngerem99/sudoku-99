@@ -1024,13 +1024,16 @@ html.dark #btn-dark::before { content: "☀️"; }
            max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
   background: var(--scrim);
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity var(--ease-spring);
+  transition: opacity var(--ease-spring), visibility 0s linear 0.35s;
 }
 
 #pause-overlay.active {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+  transition-delay: 0s;
 }
 
 .pause-dialog {
@@ -1584,6 +1587,7 @@ html.dark .daily-cal-cell.completed {
 .daily-actions {
   padding: 12px 20px 4px;
 }
+.daily-actions > [hidden] { display: none; }
 
 /* ═══════════════════════════════════════════════════════════════════════ */
 /* 10. IMPORT PUZZLE MODAL                                                 */
