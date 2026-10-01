@@ -1233,6 +1233,27 @@ button:focus-visible {
   border-width: 0;
 }
 
+#save-warning {
+  position: fixed;
+  bottom: 76px;
+  left: 50%;
+  z-index: 801;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  transform: translateX(-50%);
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--hl-conflict-txt);
+  border-radius: var(--r-btn);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  pointer-events: none;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════ */
 /* 7. SERVICE WORKER UPDATE TOAST                                          */
 /* ═══════════════════════════════════════════════════════════════════════ */

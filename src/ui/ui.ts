@@ -252,6 +252,22 @@ export function setTimer(totalSeconds: number): void {
   el.textContent = `${m}:${s}`;
 }
 
+export function showSaveWarning(): void {
+  const warning = document.getElementById("save-warning");
+  if (!warning) return;
+  warning.textContent = "Progress may not be saved. Check browser storage before leaving this game.";
+  warning.hidden = false;
+  warning.setAttribute("aria-hidden", "false");
+}
+
+export function clearSaveWarning(): void {
+  const warning = document.getElementById("save-warning");
+  if (!warning) return;
+  warning.hidden = true;
+  warning.setAttribute("aria-hidden", "true");
+  warning.textContent = "";
+}
+
 // ─── Mistake counter ────────────────────────────────────────────────────────
 
 export function setMistakes(count: number, max: number): void {

@@ -18,7 +18,7 @@ Sudoku-99 is a local-first Progressive Web App. The web application in `src/` an
 
 - `npm run build` passes
 - `npm run typecheck` passes
-- `npm test` passes: **400 tests**
+- `npm test` passes: **633 tests**
 - `npm run verify` passes
 - Production bundle: approximately **91 KB raw / 27 KB gzip**
 - Node.js requirement: 18 or newer
@@ -35,14 +35,10 @@ Splitting `src/core/techniques.ts` could reduce module size but requires refacto
 
 ## Open Product and Release Work
 
-- Improve mobile cell and numpad touch target sizing
-- Complete grid keyboard navigation and roving focus behavior
-- Add consistent focus containment and restoration across all modal panels
-- Review pencil-mark contrast in both themes
-- Complete manual screen-reader checks (NVDA/VoiceOver) and installed-PWA interruption checks on iOS Safari and Android Chrome
+- Complete Phase 11.6 manual screen-reader, keyboard, installed-PWA, offline, persistence, and mobile acceptance. Use the [release validation checklist](PHASE-11.6-MANUAL-VALIDATION-CHECKLIST.md).
 - Consider the optional first-game orientation and post-game performance history from the feature-gap assessment
 
-Automated verification is green, but manual accessibility and installed-device acceptance remain outstanding. Do not describe the app as fully WCAG-conformant until those items are resolved and verified.
+Phase 11.1-11.5 engineering changes are implemented and automated verification is green. Manual accessibility and installed-device acceptance remain outstanding. Do not describe the app as fully WCAG-conformant until those checks are resolved and verified.
 
 ## Current Screenshots
 

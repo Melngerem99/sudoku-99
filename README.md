@@ -21,7 +21,7 @@ Sudoku-99 is a local-first Sudoku game for the web. Generate puzzles, track your
 - Light and dark themes, offline PWA support, and locally saved progress
 - Accessibility foundations including keyboard controls, ARIA labels and announcements, visible focus, and reduced-motion support
 
-Further accessibility work, including mobile touch targets, keyboard navigation, modal focus containment, and pencil-mark contrast, remains open. See the [project handoff](docs/PROJECT-HANDOFF.md).
+Keyboard navigation, modal focus containment, touch targets, pencil-mark contrast, and save-failure messaging are implemented. Manual assistive-technology, installed-PWA, offline, persistence, and mobile acceptance remains before release; use the [Phase 11.6 validation checklist](docs/PHASE-11.6-MANUAL-VALIDATION-CHECKLIST.md) and [project handoff](docs/PROJECT-HANDOFF.md).
 
 ## Run Locally
 

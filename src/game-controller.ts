@@ -14,7 +14,7 @@ import { recordGameStart, recordWin, recordLoss } from './services/statistics';
 import { getDateKey, getTodayStatus, getPuzzleForDate, loadProgress, loadActiveProgress, saveProgress, clearProgress, deactivateActiveProgress, recordCompletion, getShareText } from './services/daily';
 import { $btn } from './ui/dom-helpers';
 import { announce, FocusTrap, setAppAriaHidden } from './ui/accessibility';
-import { init as initUI, renderBoard, setDigitCounts, setMistakes, setTimer, setActiveDigitButton, showHint as showHintUI, hideHint, showModal, flashCell, on, _closeSettingsDrawer, clearHintHighlights } from './ui/ui';
+import { init as initUI, renderBoard, setDigitCounts, setMistakes, setTimer, setActiveDigitButton, showHint as showHintUI, hideHint, showModal, flashCell, on, _closeSettingsDrawer, clearHintHighlights, showSaveWarning, clearSaveWarning } from './ui/ui';
 import { init as initStatisticsCtrl } from './controllers/statistics-controller';
 import { init as initAnalysisCtrl, invalidate as invalidateAnalysis } from './controllers/analysis-controller';
 import { init as initImportCtrl } from './controllers/import-controller';
@@ -58,6 +58,7 @@ let hintsUsedThisGame = 0;
 let dailyMode    = false;
 let activeDailyDateKey: string | null = null;
 let puzzleSource = "generated";
+let saveWarningActive = false;
 
 // undo / redo stacks store snapshots of mutable state
 let history: Snapshot[] = [];
@@ -117,7 +118,22 @@ function scheduleSave() {
   if (dailyMode) {
     saveDailyProgress();
   } else {
-    persistScheduleSave(getState);
+    persistScheduleSave(getState, handlePersistenceResult);
+  }
+}
+
+function handlePersistenceResult(saved: boolean): void {
+  if (!saved) {
+    if (!saveWarningActive) {
+      saveWarningActive = true;
+      showSaveWarning();
+    }
+    return;
+  }
+
+  if (saveWarningActive) {
+    saveWarningActive = false;
+    clearSaveWarning();
   }
 }
 
@@ -208,7 +224,7 @@ function startTimer() {
       if (dailyMode) {
         saveDailyProgress();
       } else {
-        saveImmediate(getState());
+        handlePersistenceResult(saveImmediate(getState()));
       }
     }
   }, 60000);
@@ -246,7 +262,7 @@ function isActiveTimedGame(): boolean {
 
 function saveCurrentStateImmediately(): void {
   if (dailyMode) saveDailyProgress();
-  else saveImmediate(getState());
+  else handlePersistenceResult(saveImmediate(getState()));
 }
 
 function updatePauseButton(): void {
@@ -599,7 +615,7 @@ function startDaily(dateKey = getDateKey()) {
 
 /** Save daily progress (called by scheduleSave when in dailyMode). */
 function saveDailyProgress() {
-  saveProgress({
+  const saved = saveProgress({
     board: board,
     candidates: candidates,
     mistakes: mistakes,
@@ -610,6 +626,8 @@ function saveDailyProgress() {
     history: history.slice(-20),
     future: future.slice(-20)
   }, activeDailyDateKey || undefined);
+  handlePersistenceResult(saved);
+  return saved;
 }
 
 function updateDifficultyButtons() {
@@ -1277,7 +1295,7 @@ if (typeof window !== 'undefined') {
       if (dailyMode) {
         saveDailyProgress();
       } else {
-        saveImmediate(getState());
+        handlePersistenceResult(saveImmediate(getState()));
       }
     }
   });

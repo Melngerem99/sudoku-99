@@ -26,12 +26,9 @@ Completed. Supports generated, imported, and daily timed games; pauses on explic
 
 ## Open Release Readiness
 
-- Improve touch target sizing for cells, numpad, and compact header controls
-- Complete grid arrow-key focus and roving tabindex behavior
-- Add consistent focus trapping/restoration to all dialogs and panels
-- Review pencil-mark contrast in light and dark themes
-- Complete manual keyboard and screen-reader checks
-- Verify offline launch, update behavior, and interruption/resume on installed iOS and Android PWAs
+- Complete manual accessibility, installed-PWA, offline, persistence, and mobile release acceptance using the [Phase 11.6 checklist](PHASE-11.6-MANUAL-VALIDATION-CHECKLIST.md).
+
+Phase 11.1-11.5 engineering remediations are complete; manual release sign-off remains outstanding.
 
 ## Product Opportunities
 

@@ -38,6 +38,51 @@ h.describe('Persistence — save and load round-trip', function () {
   h.assertEqual(loaded.history.length, 1, 'history preserved');
 });
 
+h.describe('Persistence — reports debounced write failures and recovery', function () {
+  Persistence.clear();
+  const originalSetItem = localStorage.setItem;
+  const originalSetTimeout = global.setTimeout;
+  const originalClearTimeout = global.clearTimeout;
+  let scheduledCallback = null;
+  let result = null;
+  const state = {
+    board: h.FIXTURE_PUZZLE,
+    solution: h.FIXTURE_SOLUTION,
+    givens: h.FIXTURE_PUZZLE,
+    candidates: h.FIXTURE_PUZZLE.map(function () { return new Set(); }),
+    pencilMode: false,
+    mistakes: 0,
+    timerSeconds: 0,
+    paused: false,
+    gameOver: false,
+    gameWon: false,
+    emptyMode: false,
+    currentDifficulty: 'medium',
+    hintsUsedThisGame: 0,
+    history: [],
+    future: []
+  };
+
+  try {
+    global.setTimeout = function (callback) { scheduledCallback = callback; return 1; };
+    global.clearTimeout = function () {};
+    localStorage.setItem = function () { throw Object.assign(new Error('Storage is unavailable'), { name: 'SecurityError' }); };
+    Persistence.scheduleSave(function () { return state; }, function (saved) { result = saved; });
+    scheduledCallback();
+    h.assertEqual(result, false, 'debounced storage exception reports failure');
+
+    localStorage.setItem = originalSetItem;
+    Persistence.scheduleSave(function () { return state; }, function (saved) { result = saved; });
+    scheduledCallback();
+    h.assertEqual(result, true, 'debounced successful retry reports recovery');
+  } finally {
+    localStorage.setItem = originalSetItem;
+    global.setTimeout = originalSetTimeout;
+    global.clearTimeout = originalClearTimeout;
+    Persistence.clear();
+  }
+});
+
 h.describe('Persistence — corrupted data handled', function () {
   localStorage.setItem('sudoku-game-state', '{invalid json!!!');
   var loaded = Persistence.load();

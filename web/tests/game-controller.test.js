@@ -130,6 +130,11 @@ class MockDocument {
     this.register('pause-title', 'h2', pause);
     this.register('pause-description', 'p', pause);
     this.register('btn-pause-resume', 'button', pause);
+    const saveWarning = this.register('save-warning', 'div', this.body);
+    saveWarning.hidden = true;
+    saveWarning.setAttribute('role', 'status');
+    saveWarning.setAttribute('aria-live', 'polite');
+    saveWarning.setAttribute('aria-hidden', 'true');
     const settings = this.register('settings-drawer', 'aside', this.body);
     settings.setAttribute('role', 'dialog');
     this.register('btn-settings-close', 'button', settings);
@@ -545,6 +550,53 @@ h.describe('GameController — daily pause survives UTC rollover and reload', fu
   } finally {
     global.Date = realDate;
   }
+});
+
+h.describe('GameController — persistence failures warn once and recover', function () {
+  const { document, storage } = loadApp();
+  const warning = document.getElementById('save-warning');
+  const pauseButton = document.getElementById('btn-pause');
+  const resumeButton = document.getElementById('btn-pause-resume');
+  const setItem = storage.setItem.bind(storage);
+  let storageError = Object.assign(new Error('Storage quota exceeded'), { name: 'QuotaExceededError' });
+  storage.setItem = () => { throw storageError; };
+
+  pauseButton.click();
+  assertEqual(warning.hidden, false, 'failed immediate save shows a warning');
+  assert(warning.textContent.includes('Progress may not be saved'), 'warning explains that progress may be lost');
+  assertEqual(warning.getAttribute('role'), 'status', 'warning uses status semantics');
+  assertEqual(warning.getAttribute('aria-live'), 'polite', 'warning is announced politely');
+  assertEqual(document.activeElement, resumeButton, 'warning does not steal pause-dialog focus');
+
+  storageError = Object.assign(new Error('Storage access denied'), { name: 'SecurityError' });
+  resumeButton.click();
+  assertEqual(warning.hidden, false, 'a second failure leaves the warning visible');
+  assertEqual(warning.textContent, 'Progress may not be saved. Check browser storage before leaving this game.', 'repeated failures do not duplicate or change the warning');
+  assertEqual(document.activeElement, pauseButton, 'warning does not steal resumed-game focus');
+
+  storage.setItem = setItem;
+  pauseButton.click();
+  assertEqual(warning.hidden, true, 'a later successful save clears the warning');
+  assertEqual(Persistence.load().paused, true, 'successful retry preserves normal persistence behavior');
+});
+
+h.describe('GameController — daily save failures are reported', function () {
+  const { document, storage } = loadApp();
+  document.getElementById('btn-daily-play').click();
+  const warning = document.getElementById('save-warning');
+  const pauseButton = document.getElementById('btn-pause');
+  const resumeButton = document.getElementById('btn-pause-resume');
+  const setItem = storage.setItem.bind(storage);
+  storage.setItem = () => { throw Object.assign(new Error('Storage quota exceeded'), { name: 'QuotaExceededError' }); };
+
+  pauseButton.click();
+  assertEqual(warning.hidden, false, 'failed daily progress write shows the warning');
+  assertEqual(document.activeElement, resumeButton, 'daily warning does not take focus');
+
+  storage.setItem = setItem;
+  resumeButton.click();
+  assertEqual(warning.hidden, true, 'successful daily retry clears the warning');
+  assert(storage.getItem('sudoku-daily-active-date'), 'daily active-session marker persists after recovery');
 });
 
 h.describe('Modal focus containment — Settings, Statistics, and Daily', function () {

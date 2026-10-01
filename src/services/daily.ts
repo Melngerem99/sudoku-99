@@ -173,7 +173,7 @@ export function deactivateActiveProgress(dateKey: string | null): void {
   } catch {}
 }
 
-export function saveProgress(state: any, dateKey = getDateKey()): void {
+export function saveProgress(state: any, dateKey = getDateKey()): boolean {
   try {
     const data = {
       v: PROGRESS_VERSION,
@@ -189,7 +189,10 @@ export function saveProgress(state: any, dateKey = getDateKey()): void {
     };
     localStorage.setItem(progressKey(dateKey), JSON.stringify(data));
     localStorage.setItem(ACTIVE_PROGRESS_KEY, dateKey);
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function loadProgress(dateKey = getDateKey()): any | null {

@@ -1,8 +1,8 @@
 # Phase 11 - Accessibility and Mobile Readiness
 
-**Status:** Proposed; release-readiness work
-**Baseline:** 400 automated tests pass and `npm run verify` passes, per the current project handoff. Pause/resume is implemented. Manual accessibility and installed-device acceptance remain outstanding.
-**Scope:** Close the six open release-review findings below. This roadmap is planning documentation only; it does not change application code.
+**Status:** Engineering complete; manual release sign-off pending
+**Baseline:** 633 automated tests pass and `npm run verify` passes. Phase 11.1-11.5 engineering work is implemented. Manual accessibility and installed-device acceptance remain outstanding.
+**Scope:** Track implementation and close the release gate using the [Phase 11.6 manual validation checklist](PHASE-11.6-MANUAL-VALIDATION-CHECKLIST.md).
 
 ## Prioritized Backlog
 
@@ -114,24 +114,25 @@ None of the six known findings is downgraded to this tier. The acceptance criter
 - Add repeatable accessibility regression checks to CI, such as targeted axe checks for stable rendered views and automated contrast assertions. These supplement, but do not replace, keyboard, screen-reader, and installed-device testing.
 - Expand the manual device matrix beyond representative iOS Safari and Android Chrome coverage as device availability and player usage data justify.
 
-## Proposed Phase 11 Sequence
+## Phase 11 Sequence and Status
 
-1. **11.1 Keyboard grid operation:** complete roving tabindex, focus synchronization, boundary behavior, and shortcut guards. This is the recommended next implementation task.
-2. **11.2 Modal and panel focus lifecycle:** audit all overlays, unify containment/restoration behavior, and cover pause/covered-dialog interactions.
-3. **11.3 Mobile targets and layout:** meet the effective target-size requirement while checking narrow and landscape layouts.
-4. **11.4 Visual and persistence feedback:** fix pencil-mark contrast in both themes and add accessible save-failure messaging. These can proceed in parallel.
-5. **11.5 Release validation:** run focused tests, then `npm run verify`; complete the manual accessibility and installed-PWA matrix and resolve any blocking findings.
-6. **11.6 Post-release regression investment:** consider adding targeted automated accessibility checks and broadening device coverage.
+1. **11.1 Keyboard grid operation:** implemented and automated tests pass.
+2. **11.2 Modal focus containment:** implemented and automated tests pass.
+3. **11.3 Touch target sizing:** implemented and responsive measurements pass.
+4. **11.4 Pencil-mark contrast:** implemented; light/dark state contrast tests pass.
+5. **11.5 Save-failure messaging:** implemented and failure/recovery tests pass.
+6. **11.6 Manual release validation:** checklist prepared; execution and sign-off pending.
+7. **Post-release:** consider broader automated accessibility checks and device coverage.
 
-Estimated implementation and acceptance effort for items 11.1-11.5 is **20-36 engineering hours**, excluding device access delays and remediation discovered during manual testing. Continue using the repository's existing Node test runner and `npm run verify`; older Kiro specs mention Vitest/fast-check, but those tools are not prerequisites for this focused phase.
+The engineering baseline for Phase 11 is **633 passing tests** with `npm run verify` passing. The manual validation pass is estimated at **12-16 tester-hours**, plus 1-2 hours if JAWS is applicable and available; see the [manual checklist](PHASE-11.6-MANUAL-VALIDATION-CHECKLIST.md).
 
 ## Release Gate Recommendation
 
-Keep release readiness conditional until all six Must Fix findings meet their acceptance criteria and the release record contains the manual validation results. The existing 400-test and `npm run verify` baseline is necessary but not sufficient for the manual accessibility and installed-PWA criteria. Do not claim full WCAG conformance based only on automated checks; document the tested scope and any unavailable device coverage.
+Keep release readiness conditional until the manual checklist passes on the release candidate and the sign-off record contains device/assistive-technology evidence. Automated verification is necessary but not sufficient for real screen-reader and installed-PWA acceptance. Do not claim full WCAG conformance based only on automated checks; document the tested scope and any unavailable device coverage.
 
 ## Highest-Value Next Task
 
-Start with **11.1, keyboard grid operation**. It directly affects whether keyboard-only players can perform the core activity, the requirement is concrete and testable, and the expected change can be isolated behind focused navigation tests before broader release validation.
+Complete and sign off **11.6, manual release validation**. Implementation is complete; actual assistive-technology, installed-PWA, offline, persistence, and device acceptance is the remaining release gate.
 
 ## Source Documents
 

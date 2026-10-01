@@ -92,13 +92,22 @@ function validate(data: any): boolean {
   } catch { return false; }
 }
 
-export function scheduleSave(getStateFn: () => any): void {
+export function scheduleSave(getStateFn: () => any, onResult?: (saved: boolean) => void): void {
   if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => { saveImmediate(getStateFn()); }, DEBOUNCE_MS);
+  debounceTimer = setTimeout(() => {
+    let saved = false;
+    try { saved = saveImmediate(getStateFn()); } catch {}
+    onResult?.(saved);
+  }, DEBOUNCE_MS);
 }
 
-export function saveImmediate(state: any): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(state))); } catch {}
+export function saveImmediate(state: any): boolean {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(state)));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function load(): any | null {
