@@ -5,6 +5,7 @@
 import { parse, validate, exportGivens as exportGivensStr, generateURL, copyToClipboard } from '../services/import-export';
 import { $input, $btn } from '../ui/dom-helpers';
 import { showModal, _closeSettingsDrawer } from '../ui/ui';
+import { FocusTrap } from '../ui/accessibility';
 
 type Board = number[];
 
@@ -20,19 +21,23 @@ let input: HTMLInputElement | null = null;
 let status: HTMLElement | null = null;
 let btnLoad: HTMLButtonElement | null = null;
 let pendingBoard: Board | null = null;
+let trap: FocusTrap | null = null;
 
 // ─── Import modal ───────────────────────────────────────────────────────────
 
 export function open(): void {
   if (overlay) {
+    trap?.deactivate();
     overlay.classList.add("active");
     overlay.setAttribute("aria-hidden", "false");
-    if (input) { input.value = ""; input.focus(); }
+    if (input) input.value = "";
     if (status) { status.textContent = ""; status.className = "import-status"; }
     if (btnLoad) btnLoad.disabled = true;
     pendingBoard = null;
+    trap = new FocusTrap({ container: overlay, onEscape: close, isolateBackground: true, restoreFocus: true });
+    trap.activate();
+    input?.focus();
   }
-  if (typeof _closeSettingsDrawer === "function") _closeSettingsDrawer();
 }
 
 export function close(): void {
@@ -40,6 +45,8 @@ export function close(): void {
     overlay.classList.remove("active");
     overlay.setAttribute("aria-hidden", "true");
   }
+  trap?.deactivate();
+  trap = null;
   pendingBoard = null;
 }
 

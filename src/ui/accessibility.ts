@@ -78,6 +78,10 @@ export interface FocusTrapOptions {
   container: HTMLElement;
   /** Called when the user presses Escape inside the trap. */
   onEscape?: () => void;
+  /** Hide and inert the app and other dialogs while this dialog is active. */
+  isolateBackground?: boolean;
+  /** Restore focus to the element active when the trap was activated. */
+  restoreFocus?: boolean;
 }
 
 /**
@@ -92,11 +96,21 @@ export interface FocusTrapOptions {
 export class FocusTrap {
   private readonly container: HTMLElement;
   private readonly onEscape: (() => void) | undefined;
+  private readonly isolateBackground: boolean;
+  private readonly restoreFocus: boolean;
   private handler: ((e: KeyboardEvent) => void) | null = null;
+  private returnFocus: HTMLElement | null = null;
+  private appState: { ariaHidden: string | null; inert: boolean } | null = null;
+  private dialogStates: Array<{ element: HTMLElement; ariaHidden: string | null; inert: boolean }> = [];
+  private containerTabIndex: string | null = null;
+  private containerTabIndexChanged = false;
+  private containerInert: boolean | null = null;
 
   constructor(opts: FocusTrapOptions) {
     this.container = opts.container;
     this.onEscape = opts.onEscape;
+    this.isolateBackground = opts.isolateBackground ?? false;
+    this.restoreFocus = opts.restoreFocus ?? false;
   }
 
   /**
@@ -104,8 +118,24 @@ export class FocusTrap {
    * container and attach the keydown handler.
    */
   activate(): void {
+    if (this.handler) return;
+
+    if (this.restoreFocus) {
+      const active = document.activeElement as HTMLElement | null;
+      this.returnFocus = active && active !== document.body ? active : null;
+    }
+
+    if (this.isolateBackground) this.isolatePageBackground();
+
     const focusable = this.getFocusable();
-    focusable[0]?.focus();
+    if (focusable.length > 0) {
+      focusable[0].focus();
+    } else {
+      this.containerTabIndex = this.container.getAttribute('tabindex');
+      this.container.setAttribute('tabindex', '-1');
+      this.containerTabIndexChanged = true;
+      this.container.focus();
+    }
 
     this.handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -145,14 +175,26 @@ export class FocusTrap {
 
   /**
    * Deactivate the trap: remove the keydown handler.
-   * Does NOT move focus — the caller is responsible for returning focus to the
-   * trigger element after calling deactivate().
+  * Restores focus only when `restoreFocus` was enabled for this trap.
    */
   deactivate(): void {
     if (this.handler) {
       this.container.removeEventListener('keydown', this.handler);
       this.handler = null;
     }
+
+    if (this.containerTabIndexChanged) {
+      if (this.containerTabIndex === null) this.container.removeAttribute?.('tabindex');
+      else this.container.setAttribute('tabindex', this.containerTabIndex);
+      this.containerTabIndex = null;
+      this.containerTabIndexChanged = false;
+    }
+
+    this.restorePageBackground();
+
+    const returnFocus = this.returnFocus;
+    this.returnFocus = null;
+    if (returnFocus?.isConnected && !this.isUnavailable(returnFocus)) returnFocus.focus();
   }
 
   /**
@@ -163,17 +205,65 @@ export class FocusTrap {
     const candidates = Array.from(
       this.container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS),
     );
-    return candidates.filter((el) => !this.isInsideAriaHidden(el));
+    return candidates.filter((el) => !this.isUnavailable(el));
   }
 
-  /**
-   * Returns true if `el` is a descendant of an `[aria-hidden="true"]` element
-   * that is itself inside the container.
-   */
-  private isInsideAriaHidden(el: HTMLElement): boolean {
-    let node: HTMLElement | null = el.parentElement;
+  private isUnavailable(el: HTMLElement): boolean {
+    let node: HTMLElement | null = el;
     while (node && node !== this.container) {
-      if (node.getAttribute('aria-hidden') === 'true') return true;
+      if (node.hidden || node.inert || node.getAttribute('aria-hidden') === 'true') return true;
+      node = node.parentElement;
+    }
+    return false;
+  }
+
+  private isolatePageBackground(): void {
+    this.containerInert = this.container.inert;
+    this.container.inert = false;
+
+    const app = document.getElementById('app');
+    if (app) {
+      this.appState = { ariaHidden: app.getAttribute('aria-hidden'), inert: app.inert };
+      app.setAttribute('aria-hidden', 'true');
+      app.inert = true;
+    }
+
+    this.dialogStates = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]'))
+      .filter((dialog) => dialog !== this.container && !this.isAncestor(dialog, this.container))
+      .map((dialog) => {
+        const state = { element: dialog, ariaHidden: dialog.getAttribute('aria-hidden'), inert: dialog.inert };
+        dialog.setAttribute('aria-hidden', 'true');
+        dialog.inert = true;
+        return state;
+      });
+  }
+
+  private restorePageBackground(): void {
+    this.dialogStates.forEach(({ element, ariaHidden, inert }) => {
+      if (ariaHidden === null) element.removeAttribute('aria-hidden');
+      else element.setAttribute('aria-hidden', ariaHidden);
+      element.inert = inert;
+    });
+    this.dialogStates = [];
+
+    const app = document.getElementById('app');
+    if (app && this.appState) {
+      if (this.appState.ariaHidden === null) app.removeAttribute('aria-hidden');
+      else app.setAttribute('aria-hidden', this.appState.ariaHidden);
+      app.inert = this.appState.inert;
+    }
+    this.appState = null;
+
+    if (this.containerInert !== null) {
+      this.container.inert = this.containerInert;
+      this.containerInert = null;
+    }
+  }
+
+  private isAncestor(ancestor: HTMLElement, element: HTMLElement): boolean {
+    let node = element.parentElement;
+    while (node) {
+      if (node === ancestor) return true;
       node = node.parentElement;
     }
     return false;

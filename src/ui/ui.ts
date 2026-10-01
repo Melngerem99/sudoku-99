@@ -25,6 +25,8 @@ const handlers: Record<string, Function[]> = {};
 
 // Module-level FocusTrap instance for the hint panel
 let hintTrap: FocusTrap | null = null;
+let settingsTrap: FocusTrap | null = null;
+let modalTrap: FocusTrap | null = null;
 
 // ─── Event emitter ──────────────────────────────────────────────────────────
 
@@ -373,6 +375,8 @@ export const hideHint = hideHintPanel;
 // ─── Modal ──────────────────────────────────────────────────────────────────
 
 export function showModal({ title = "", body = "", buttons = [] }: ModalOpts = {}): void {
+  modalTrap?.deactivate();
+  modalTrap = null;
   const overlay = document.getElementById("modal-overlay");
   const titleEl = document.getElementById("modal-title");
   const bodyEl = document.getElementById("modal-body");
@@ -393,13 +397,20 @@ export function showModal({ title = "", body = "", buttons = [] }: ModalOpts = {
   }
   overlay.classList.add("active");
   overlay.setAttribute("aria-hidden", "false");
-  const firstBtn = footerEl?.querySelector("button") as HTMLElement | null;
-  if (firstBtn) firstBtn.focus();
+  modalTrap = new FocusTrap({
+    container: overlay,
+    onEscape: hideModal,
+    isolateBackground: true,
+    restoreFocus: true,
+  });
+  modalTrap.activate();
 }
 
 export function hideModal(): void {
   const overlay = document.getElementById("modal-overlay");
   if (overlay) { overlay.classList.remove("active"); overlay.setAttribute("aria-hidden", "true"); }
+  modalTrap?.deactivate();
+  modalTrap = null;
 }
 
 // ─── Active digit button ────────────────────────────────────────────────────
@@ -431,12 +442,21 @@ export function init(): void {
   if (hintScrim) hintScrim.addEventListener("click", () => { hideHintPanel(); emit("hintClose"); });
 
   function openSettingsDrawer() {
+    settingsTrap?.deactivate();
+    settingsTrap = null;
     const drawer = document.getElementById("settings-drawer");
     const scrim = document.getElementById("settings-scrim");
     if (drawer) { drawer.classList.add("open"); drawer.setAttribute("aria-hidden", "false"); }
     if (scrim) { scrim.classList.add("visible"); scrim.setAttribute("aria-hidden", "false"); }
-    const closeBtn = document.getElementById("btn-settings-close");
-    if (closeBtn) closeBtn.focus();
+    if (drawer) {
+      settingsTrap = new FocusTrap({
+        container: drawer,
+        onEscape: closeSettingsDrawer,
+        isolateBackground: true,
+        restoreFocus: true,
+      });
+      settingsTrap.activate();
+    }
   }
 
   function closeSettingsDrawer() {
@@ -444,8 +464,8 @@ export function init(): void {
     const scrim = document.getElementById("settings-scrim");
     if (drawer) { drawer.classList.remove("open"); drawer.setAttribute("aria-hidden", "true"); }
     if (scrim) { scrim.classList.remove("visible"); scrim.setAttribute("aria-hidden", "true"); }
-    const settingsBtn = document.getElementById("btn-settings");
-    if (settingsBtn) settingsBtn.focus();
+    settingsTrap?.deactivate();
+    settingsTrap = null;
   }
 
   _closeSettingsDrawer = closeSettingsDrawer;

@@ -5,6 +5,9 @@
 import { getStats, formatTime, winRate, avgTime, reset } from '../services/statistics';
 import { setText } from '../ui/dom-helpers';
 import { showModal } from '../ui/ui';
+import { FocusTrap } from '../ui/accessibility';
+
+let trap: FocusTrap | null = null;
 
 // ─── Panel open / close ─────────────────────────────────────────────────────
 
@@ -14,8 +17,11 @@ export function open(): void {
   const scrim = document.getElementById("stats-scrim");
   if (panel) { panel.classList.add("open"); panel.setAttribute("aria-hidden", "false"); }
   if (scrim) { scrim.classList.add("visible"); scrim.setAttribute("aria-hidden", "false"); }
-  const closeBtn = document.getElementById("btn-stats-close");
-  if (closeBtn) closeBtn.focus();
+  if (panel) {
+    trap?.deactivate();
+    trap = new FocusTrap({ container: panel, onEscape: close, isolateBackground: true, restoreFocus: true });
+    trap.activate();
+  }
 }
 
 export function close(): void {
@@ -23,8 +29,8 @@ export function close(): void {
   const scrim = document.getElementById("stats-scrim");
   if (panel) { panel.classList.remove("open"); panel.setAttribute("aria-hidden", "true"); }
   if (scrim) { scrim.classList.remove("visible"); scrim.setAttribute("aria-hidden", "true"); }
-  const statsBtn = document.getElementById("btn-stats");
-  if (statsBtn) statsBtn.focus();
+  trap?.deactivate();
+  trap = null;
 }
 
 // ─── Populate ───────────────────────────────────────────────────────────────

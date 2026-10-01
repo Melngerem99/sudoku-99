@@ -37,6 +37,7 @@ class MockElement {
 
   get className() { return [...this._classes].join(' '); }
   set className(value) { this._classes = new Set(String(value).split(/\s+/).filter(Boolean)); }
+  toJSON() { return { tagName: this.tagName, id: this.id }; }
   get textContent() { return this._textContent || ''; }
   set textContent(value) { this._textContent = String(value); }
   get innerHTML() { return this._innerHTML || ''; }
@@ -99,9 +100,14 @@ class MockElement {
     const visit = (node) => node.children.forEach((child) => { descendants.push(child); visit(child); });
     visit(this);
     if (selector.includes('[role="dialog"]')) return descendants.filter((node) => node.getAttribute('role') === 'dialog');
-    if (selector.includes('button')) return descendants.filter((node) => node.tagName === 'BUTTON' && !node.disabled);
     if (selector.startsWith('.')) return descendants.filter((node) => node.classList.contains(selector.slice(1)));
-    return [];
+    return descendants.filter((node) =>
+      (selector.includes('button') && node.tagName === 'BUTTON' && !node.disabled) ||
+      (selector.includes('input') && node.tagName === 'INPUT' && !node.disabled) ||
+      (selector.includes('select') && node.tagName === 'SELECT' && !node.disabled) ||
+      (selector.includes('textarea') && node.tagName === 'TEXTAREA' && !node.disabled) ||
+      (selector.includes('[tabindex]') && node.getAttribute('tabindex') !== null && node.getAttribute('tabindex') !== '-1')
+    );
   }
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
   closest() { return null; }
@@ -119,22 +125,45 @@ class MockDocument {
     this.register('toolbar', 'section', this.getElementById('app'));
     this.register('btn-pause', 'button', this.getElementById('toolbar'));
     const pause = this.register('pause-overlay', 'div', this.body);
+    pause.setAttribute('role', 'dialog');
     pause.setAttribute('inert', '');
     this.register('pause-title', 'h2', pause);
     this.register('pause-description', 'p', pause);
     this.register('btn-pause-resume', 'button', pause);
+    const settings = this.register('settings-drawer', 'aside', this.body);
+    settings.setAttribute('role', 'dialog');
+    this.register('btn-settings-close', 'button', settings);
+    this.register('btn-import', 'button', settings);
+    this.register('btn-analyze', 'button', settings);
+    const stats = this.register('stats-panel', 'aside', this.body);
+    stats.setAttribute('role', 'dialog');
+    this.register('btn-stats-close', 'button', stats);
+    this.register('btn-stats-reset', 'button', stats);
     const grid = this.register('sudoku-grid', 'section', this.getElementById('app'));
     grid.setAttribute('role', 'grid');
     grid.setAttribute('aria-rowcount', '9');
     grid.setAttribute('aria-colcount', '9');
     this.register('numpad', 'section', this.getElementById('app'));
     this.register('daily-panel', 'aside', this.body);
+    this.getElementById('daily-panel').setAttribute('role', 'dialog');
     this.register('btn-daily-close', 'button', this.getElementById('daily-panel'));
     this.register('btn-daily-continue', 'button', this.getElementById('daily-panel'));
     this.register('btn-daily-play', 'button', this.getElementById('daily-panel'));
+    const analysis = this.register('analysis-panel', 'aside', this.body);
+    analysis.setAttribute('role', 'dialog');
+    this.register('btn-analysis-close', 'button', analysis);
+    const importOverlay = this.register('import-overlay', 'div', this.body);
+    importOverlay.setAttribute('role', 'dialog');
+    this.register('import-input', 'input', importOverlay);
+    this.register('import-status', 'div', importOverlay);
+    this.register('import-btn-cancel', 'button', importOverlay);
+    this.register('import-btn-validate', 'button', importOverlay);
+    this.register('import-btn-load', 'button', importOverlay);
     this.register('library-panel', 'aside', this.body);
+    this.getElementById('library-panel').setAttribute('role', 'dialog');
     this.register('btn-library-close', 'button', this.getElementById('library-panel'));
     this.register('modal-overlay', 'div', this.body);
+    this.getElementById('modal-overlay').setAttribute('role', 'dialog');
     this.register('modal-footer', 'div', this.getElementById('modal-overlay'));
   }
 
@@ -234,8 +263,57 @@ function loadApp(storage = h.createMockStorage(), difficulty = 'medium') {
 
 function dispatchKey(target, key, modifiers = {}) {
   const event = { ...modifiers, type: 'keydown', key, target, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  target.focus?.();
   target.dispatchEvent(event);
   return event;
+}
+
+function focusableDescendants(container) {
+  return container.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+    .filter((element) => {
+      if (element.hidden || element.inert) return false;
+      for (let parent = element.parentElement; parent && parent !== container; parent = parent.parentElement) {
+        if (parent.hidden || parent.inert || parent.getAttribute('aria-hidden') === 'true') return false;
+      }
+      return true;
+    });
+}
+
+function assertDialogFocusCycle(name, document, dialog, opener, open, closeState) {
+  dialog.setAttribute('role', 'dialog');
+  const firstExtra = new MockElement(document, 'button');
+  const lastExtra = new MockElement(document, 'button');
+  dialog.appendChild(firstExtra);
+  dialog.appendChild(lastExtra);
+  opener.focus();
+
+  open();
+  const controls = focusableDescendants(dialog);
+  assert(controls.length >= 2, name + ' has multiple focusable controls');
+  assertEqual(document.activeElement, controls[0], name + ' moves focus into the dialog');
+  assertEqual(document.getElementById('app').inert, true, name + ' makes app background inert');
+  assertEqual(document.getElementById('app').getAttribute('aria-hidden'), 'true', name + ' hides app from assistive technology');
+  document.querySelectorAll('[role="dialog"]')
+    .filter((otherDialog) => otherDialog !== dialog)
+    .forEach((otherDialog) => {
+      assertEqual(otherDialog.inert, true, name + ' makes background dialogs inert');
+      assertEqual(otherDialog.getAttribute('aria-hidden'), 'true', name + ' hides background dialogs from assistive technology');
+    });
+
+  const forward = dispatchKey(controls[controls.length - 1], 'Tab');
+  assertEqual(forward.defaultPrevented, true, name + ' traps forward Tab at the last control');
+  assertEqual(document.activeElement, controls[0], name + ' wraps forward Tab to the first control');
+
+  const reverse = dispatchKey(controls[0], 'Tab', { shiftKey: true });
+  assertEqual(reverse.defaultPrevented, true, name + ' traps reverse Tab at the first control');
+  assertEqual(document.activeElement, controls[controls.length - 1], name + ' wraps reverse Tab to the last control');
+
+  const escape = dispatchKey(controls[controls.length - 1], 'Escape');
+  assertEqual(escape.defaultPrevented, true, name + ' consumes Escape in the active dialog');
+  assertEqual(dialog.getAttribute('aria-hidden'), 'true', name + ' closes on Escape');
+  assert(document.activeElement === opener, name + ' restores focus to the opener');
+  assertEqual(document.getElementById('app').inert, closeState?.appInert ?? false, name + ' restores prior app inert state');
+  assertEqual(document.getElementById('app').getAttribute('aria-hidden'), closeState?.appAriaHidden ?? null, name + ' restores prior app ARIA state');
 }
 
 h.describe('GameController — pause/resume and active-time accounting', function () {
@@ -467,4 +545,79 @@ h.describe('GameController — daily pause survives UTC rollover and reload', fu
   } finally {
     global.Date = realDate;
   }
+});
+
+h.describe('Modal focus containment — Settings, Statistics, and Daily', function () {
+  const settings = loadApp();
+  assertDialogFocusCycle(
+    'Settings dialog', settings.document,
+    settings.document.getElementById('settings-drawer'),
+    settings.document.getElementById('btn-settings'),
+    () => settings.document.getElementById('btn-settings').click()
+  );
+
+  const statistics = loadApp();
+  assertDialogFocusCycle(
+    'Statistics dialog', statistics.document,
+    statistics.document.getElementById('stats-panel'),
+    statistics.document.getElementById('btn-stats'),
+    () => statistics.document.getElementById('btn-stats').click()
+  );
+
+  const daily = loadApp();
+  assertDialogFocusCycle(
+    'Daily dialog', daily.document,
+    daily.document.getElementById('daily-panel'),
+    daily.document.getElementById('btn-daily'),
+    () => daily.document.getElementById('btn-daily').click()
+  );
+});
+
+h.describe('Modal focus containment — Analysis and Import', function () {
+  const analysis = loadApp();
+  analysis.document.getElementById('btn-settings').click();
+  const analysisTrigger = analysis.document.getElementById('btn-analyze');
+  assertDialogFocusCycle(
+    'Analysis dialog', analysis.document,
+    analysis.document.getElementById('analysis-panel'),
+    analysisTrigger,
+    () => { analysisTrigger.focus(); global.AnalysisController.open(); },
+    { appInert: true, appAriaHidden: 'true' }
+  );
+  assertEqual(analysis.document.getElementById('settings-drawer').inert, false, 'closing analysis restores the settings dialog');
+  UI._closeSettingsDrawer();
+
+  const imported = loadApp();
+  imported.document.getElementById('btn-settings').click();
+  const importTrigger = imported.document.getElementById('btn-import');
+  assertDialogFocusCycle(
+    'Import dialog', imported.document,
+    imported.document.getElementById('import-overlay'),
+    importTrigger,
+    () => { importTrigger.focus(); global.ImportController.open(); },
+    { appInert: true, appAriaHidden: 'true' }
+  );
+  assertEqual(imported.document.getElementById('settings-drawer').inert, false, 'closing import restores the settings dialog');
+  UI._closeSettingsDrawer();
+});
+
+h.describe('Modal focus containment — generic modal over Statistics', function () {
+  const { document } = loadApp();
+  const statsTrigger = document.getElementById('btn-stats');
+  statsTrigger.click();
+  const statisticsDialog = document.getElementById('stats-panel');
+  const modalTrigger = document.getElementById('btn-stats-reset');
+  modalTrigger.focus();
+
+  const modal = document.getElementById('modal-overlay');
+  assertDialogFocusCycle(
+    'Generic modal', document, modal, modalTrigger,
+    () => UI.showModal({ title: 'Confirm', buttons: [{ label: 'Confirm' }, { label: 'Cancel' }] }),
+    { appInert: true, appAriaHidden: 'true' }
+  );
+  assertEqual(statisticsDialog.getAttribute('aria-hidden'), 'false', 'closing generic modal restores underlying Statistics');
+  assertEqual(statisticsDialog.inert, false, 'underlying Statistics becomes interactive again');
+  assertEqual(document.activeElement, modalTrigger, 'generic modal restores focus to its Statistics trigger');
+  StatisticsController.close();
+  assertEqual(document.getElementById('app').inert, false, 'closing Statistics restores the app background');
 });

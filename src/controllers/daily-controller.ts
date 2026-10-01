@@ -4,11 +4,13 @@
 
 import { getHistory, getTodayStatus, getDateKey, getDayNumber, getDifficultyForDate, loadMostRecentProgressBefore } from '../services/daily';
 import { setText } from '../ui/dom-helpers';
+import { FocusTrap } from '../ui/accessibility';
 
 // ─── Injected callbacks ─────────────────────────────────────────────────────
 
 let startDailyFn: () => void = () => {};
 let continueDailyFn: (dateKey: string) => void = () => {};
+let trap: FocusTrap | null = null;
 
 // ─── Badge ──────────────────────────────────────────────────────────────────
 
@@ -28,8 +30,11 @@ export function open(): void {
   const scrim = document.getElementById("daily-scrim");
   if (panel) { panel.classList.add("open"); panel.setAttribute("aria-hidden", "false"); }
   if (scrim) { scrim.classList.add("visible"); scrim.setAttribute("aria-hidden", "false"); }
-  const closeBtn = document.getElementById("btn-daily-close");
-  if (closeBtn) closeBtn.focus();
+  if (panel) {
+    trap?.deactivate();
+    trap = new FocusTrap({ container: panel, onEscape: close, isolateBackground: true, restoreFocus: true });
+    trap.activate();
+  }
 }
 
 export function close(): void {
@@ -37,8 +42,8 @@ export function close(): void {
   const scrim = document.getElementById("daily-scrim");
   if (panel) { panel.classList.remove("open"); panel.setAttribute("aria-hidden", "true"); }
   if (scrim) { scrim.classList.remove("visible"); scrim.setAttribute("aria-hidden", "true"); }
-  const dailyBtn = document.getElementById("btn-daily");
-  if (dailyBtn) dailyBtn.focus();
+  trap?.deactivate();
+  trap = null;
 }
 
 // ─── Populate ───────────────────────────────────────────────────────────────

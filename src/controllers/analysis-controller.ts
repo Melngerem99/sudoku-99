@@ -5,7 +5,7 @@
 import { computePath } from '../core/step-solver';
 import { analyze } from '../core/difficulty';
 import { setText } from '../ui/dom-helpers';
-import { _closeSettingsDrawer } from '../ui/ui';
+import { FocusTrap } from '../ui/accessibility';
 
 type Board = number[];
 
@@ -65,22 +65,21 @@ function compute(): any {
 
 // ─── Panel open / close ─────────────────────────────────────────────────────
 
-let prevFocus: Element | null = null;
+let trap: FocusTrap | null = null;
 
 export function open(): void {
   const analysis = compute();
   populate(analysis);
 
-  prevFocus = document.activeElement;
-
   const panel = document.getElementById("analysis-panel");
   const scrim = document.getElementById("analysis-scrim");
   if (panel) { panel.classList.add("open"); panel.setAttribute("aria-hidden", "false"); }
   if (scrim) { scrim.classList.add("visible"); scrim.setAttribute("aria-hidden", "false"); }
-  if (typeof _closeSettingsDrawer === "function") _closeSettingsDrawer();
-
-  const closeBtn = document.getElementById("btn-analysis-close");
-  if (closeBtn) closeBtn.focus();
+  if (panel) {
+    trap?.deactivate();
+    trap = new FocusTrap({ container: panel, onEscape: close, isolateBackground: true, restoreFocus: true });
+    trap.activate();
+  }
 
   if (typeof console !== "undefined" && console.debug) {
     console.debug("[Analysis]", {
@@ -99,10 +98,8 @@ export function close(): void {
   const scrim = document.getElementById("analysis-scrim");
   if (panel) { panel.classList.remove("open"); panel.setAttribute("aria-hidden", "true"); }
   if (scrim) { scrim.classList.remove("visible"); scrim.setAttribute("aria-hidden", "true"); }
-  if (prevFocus && (prevFocus as HTMLElement).focus) {
-    (prevFocus as HTMLElement).focus();
-    prevFocus = null;
-  }
+  trap?.deactivate();
+  trap = null;
 }
 
 // ─── Populate ───────────────────────────────────────────────────────────────
