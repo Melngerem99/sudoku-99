@@ -13,7 +13,7 @@ import { scheduleSave as persistScheduleSave, saveImmediate, load as loadPersist
 import { recordGameStart, recordWin, recordLoss } from './services/statistics';
 import { getTodayStatus, getTodayPuzzle, loadProgress, saveProgress, clearProgress, recordCompletion, getShareText } from './services/daily';
 import { $btn } from './ui/dom-helpers';
-import { announce } from './ui/accessibility';
+import { announce, FocusTrap, setAppAriaHidden } from './ui/accessibility';
 import { init as initUI, renderBoard, setDigitCounts, setMistakes, setTimer, setActiveDigitButton, showHint as showHintUI, hideHint, showModal, flashCell, on, _closeSettingsDrawer, clearHintHighlights } from './ui/ui';
 import { init as initStatisticsCtrl } from './controllers/statistics-controller';
 import { init as initAnalysisCtrl, invalidate as invalidateAnalysis } from './controllers/analysis-controller';
@@ -29,6 +29,8 @@ type CandidateGrid = Set<number>[];
 
 const MAX_MISTAKES = 3;
 const DIFFICULTIES = ["easy", "medium", "hard", "expert"];
+type PauseReason = 'user' | 'background' | 'step-solver';
+const pauseReasons = new Set<PauseReason>();
 let currentDifficulty = "medium";
 
 // ─── state ────────────────────────────────────────────────────────────────
@@ -45,6 +47,7 @@ let pencilMode  = false;
 let mistakes    = 0;
 let timerSeconds = 0;
 let timerHandle: ReturnType<typeof setInterval> | null = null;
+let pauseTrap: FocusTrap | null = null;
 let gameOver     = false;
 let gameWon      = false;
 let emptyMode    = false;
@@ -91,6 +94,7 @@ function getState() {
     pencilMode: pencilMode,
     mistakes: mistakes,
     timerSeconds: timerSeconds,
+    paused: isPaused(),
     gameOver: gameOver,
     gameWon: gameWon,
     emptyMode: emptyMode,
@@ -170,6 +174,7 @@ function render() {
   if (pencilBtn) pencilBtn.classList.toggle("active", pencilMode);
   // Update digit button active state
   setActiveDigitButton(activeDigit);
+  updatePauseButton();
 }
 
 // ─── timer ────────────────────────────────────────────────────────────────
@@ -177,9 +182,15 @@ function render() {
 let timerCheckpointHandle: ReturnType<typeof setInterval> | null = null;
 
 function startTimer() {
-  stopTimer();
+  if (timerHandle || isPaused() || gameOver || gameWon || emptyMode) return;
+  if (document.visibilityState === "hidden") {
+    pauseReasons.add('background');
+    updatePauseButton();
+    saveCurrentStateImmediately();
+    return;
+  }
   timerHandle = setInterval(() => {
-    if (!gameOver && !gameWon) {
+    if (!gameOver && !gameWon && !isPaused()) {
       timerSeconds++;
       setTimer(timerSeconds);
       if (timerSeconds % 60 === 0 && timerSeconds > 0) {
@@ -190,7 +201,7 @@ function startTimer() {
   }, 1000);
   // Checkpoint save every 60s — ensures timer value survives mobile tab kills
   timerCheckpointHandle = setInterval(() => {
-    if (!gameOver && !gameWon) {
+    if (!gameOver && !gameWon && !isPaused()) {
       if (dailyMode) {
         saveDailyProgress();
       } else {
@@ -198,6 +209,7 @@ function startTimer() {
       }
     }
   }, 60000);
+  updatePauseButton();
 }
 
 function stopTimer() {
@@ -209,8 +221,122 @@ function stopTimer() {
 
 function resetTimer() {
   stopTimer();
+  pauseReasons.clear();
+  hidePauseDialog();
   timerSeconds = 0;
   setTimer(0);
+}
+
+function isPaused(): boolean {
+  return pauseReasons.size > 0;
+}
+
+function isActiveTimedGame(): boolean {
+  return !emptyMode && !gameOver && !gameWon && (timerHandle !== null || isPaused());
+}
+
+function saveCurrentStateImmediately(): void {
+  if (dailyMode) saveDailyProgress();
+  else saveImmediate(getState());
+}
+
+function updatePauseButton(): void {
+  const button = document.getElementById("btn-pause") as HTMLButtonElement | null;
+  if (!button) return;
+
+  const paused = isPaused();
+  button.hidden = emptyMode || gameOver || gameWon || (!timerHandle && !paused);
+  button.setAttribute("aria-pressed", String(paused));
+  button.setAttribute("aria-label", paused ? "Resume game" : "Pause game");
+  button.title = paused ? "Resume game" : "Pause game";
+
+  const icon = document.getElementById("pause-icon");
+  const label = document.getElementById("pause-label");
+  if (icon) icon.textContent = paused ? "▶" : "⏸";
+  if (label) label.textContent = paused ? "Resume" : "Pause";
+}
+
+function showPauseDialog(): void {
+  if (pauseReasons.has('step-solver') || (!pauseReasons.has('user') && !pauseReasons.has('background'))) return;
+  if (document.visibilityState === "hidden") return;
+  const overlay = document.getElementById("pause-overlay");
+  if (!overlay || overlay.classList.contains("active")) return;
+
+  overlay.classList.add("active");
+  overlay.setAttribute("aria-hidden", "false");
+  setAppAriaHidden(true);
+  const resumeButton = document.getElementById("btn-pause-resume");
+  if (resumeButton) {
+    pauseTrap = new FocusTrap({ container: overlay, onEscape: resumeGame });
+    pauseTrap.activate();
+  }
+  announce("Game paused", 'polite');
+}
+
+function hidePauseDialog(): void {
+  const overlay = document.getElementById("pause-overlay");
+  if (!overlay || !overlay.classList.contains("active")) return;
+
+  pauseTrap?.deactivate();
+  pauseTrap = null;
+  overlay.classList.remove("active");
+  overlay.setAttribute("aria-hidden", "true");
+  setAppAriaHidden(pauseReasons.has('step-solver'));
+  if (!pauseReasons.has('step-solver')) document.getElementById("btn-pause")?.focus();
+}
+
+function acquirePause(reason: PauseReason): void {
+  if (!isActiveTimedGame() || pauseReasons.has(reason)) return;
+  pauseReasons.add(reason);
+  stopTimer();
+  updatePauseButton();
+  saveCurrentStateImmediately();
+
+  if (reason === 'step-solver') announce("Game timer paused for the solution walkthrough", 'polite');
+  else showPauseDialog();
+}
+
+function releasePause(reason: PauseReason): void {
+  if (!pauseReasons.delete(reason)) return;
+  updatePauseButton();
+  saveCurrentStateImmediately();
+
+  if (isPaused()) {
+    if (!pauseReasons.has('step-solver')) showPauseDialog();
+    return;
+  }
+
+  hidePauseDialog();
+  startTimer();
+  if (!isPaused()) announce("Game resumed", 'polite');
+}
+
+function pauseGame(): void {
+  if (!isActiveTimedGame()) return;
+  acquirePause('user');
+}
+
+function resumeGame(): void {
+  if (!pauseReasons.has('user') && !pauseReasons.has('background')) return;
+  pauseReasons.delete('user');
+  pauseReasons.delete('background');
+  updatePauseButton();
+  saveCurrentStateImmediately();
+  if (isPaused()) {
+    hidePauseDialog();
+    return;
+  }
+  hidePauseDialog();
+  startTimer();
+  if (!isPaused()) announce("Game resumed", 'polite');
+}
+
+function handleVisibilityChange(): void {
+  if (document.visibilityState === "hidden") {
+    if (isActiveTimedGame()) acquirePause('background');
+  } else if (!pauseReasons.has('step-solver') && (pauseReasons.has('user') || pauseReasons.has('background'))) {
+    showPauseDialog();
+  }
 }
 
 // ─── game setup ───────────────────────────────────────────────────────────
@@ -219,6 +345,7 @@ function resetTimer() {
  * Start a new game with the given difficulty.
  */
 function newGame(difficulty = currentDifficulty) {
+  if (isPaused()) return;
   currentDifficulty = difficulty;
   emptyMode = false;
   dailyMode = false;
@@ -276,6 +403,7 @@ function newGame(difficulty = currentDifficulty) {
  * Load an empty grid (free-play / puzzle entry mode).
  */
 function loadEmptyGrid() {
+  if (isPaused()) return;
   emptyMode = true;
   puzzleSource = "empty";
   board     = new Array(81).fill(0);
@@ -304,6 +432,7 @@ function loadEmptyGrid() {
  * Exits daily mode if active. Solves for the solution if unique.
  */
 function importPuzzle(boardArray: Board) {
+  if (isPaused()) return;
   dailyMode = false;
   activeDailyDateKey = null;
   emptyMode = false;
@@ -345,6 +474,7 @@ function importPuzzle(boardArray: Board) {
  * Start or resume today's daily challenge.
  */
 function startDaily() {
+  if (isPaused()) return;
   // Check if already completed today
   if (getTodayStatus() === "completed") {
     showModal({
@@ -359,12 +489,12 @@ function startDaily() {
   emptyMode = false;
   puzzleSource = "daily";
 
-  // Try to resume in-progress daily
-  var progress = loadProgress();
   var daily = getTodayPuzzle();
 
   // Capture dateKey now — it won't change even if midnight UTC rolls over mid-game
   activeDailyDateKey = daily.dateKey;
+  // Daily progress belongs to the date captured for this session, even if UTC changes later.
+  var progress = loadProgress(activeDailyDateKey);
 
   board     = progress ? progress.board : daily.puzzle.slice();
   solution  = daily.solution.slice();
@@ -386,11 +516,17 @@ function startDaily() {
 
   resetTimer();
   setTimer(timerSeconds);
-  startTimer();
   hideHint();
   render();
   updateDifficultyButtons();
   updateDailyBadge();
+  if (progress && progress.paused) {
+    pauseReasons.add('user');
+    updatePauseButton();
+    showPauseDialog();
+  } else {
+    startTimer();
+  }
   computeActualDifficulty();
   invalidateAnalysis();
 }
@@ -402,11 +538,12 @@ function saveDailyProgress() {
     candidates: candidates,
     mistakes: mistakes,
     timerSeconds: timerSeconds,
+    paused: isPaused(),
     hintsUsed: hintsUsedThisGame,
     pencilMode: pencilMode,
     history: history.slice(-20),
     future: future.slice(-20)
-  });
+  }, activeDailyDateKey || undefined);
 }
 
 function updateDifficultyButtons() {
@@ -446,7 +583,7 @@ function computeActualDifficulty() {
 // ─── cell selection ───────────────────────────────────────────────────────
 
 function selectCell(idx: number) {
-  if (idx < 0 || idx > 80) return;
+  if (isPaused() || idx < 0 || idx > 80) return;
   selectedIdx = idx;
   // If there is a digit in this cell, activate that digit on the pad
   if (board[idx] !== 0) {
@@ -462,7 +599,7 @@ function selectCell(idx: number) {
  * If pencilMode, toggles a pencil mark instead.
  */
 function placeDigit(digit: number) {
-  if (selectedIdx === null) return;
+  if (isPaused() || gameOver || selectedIdx === null) return;
   const idx = selectedIdx;
 
   // In empty mode every cell is editable
@@ -558,7 +695,7 @@ function rebuildCandidatesAround(idx: number) {
 // ─── eraser ───────────────────────────────────────────────────────────────
 
 function eraseCell(idx: number | null = selectedIdx) {
-  if (idx === null) return;
+  if (isPaused() || gameOver || idx === null) return;
   if (!emptyMode && givens[idx] !== 0) return;
   pushHistory();
   board[idx] = 0;
@@ -574,7 +711,7 @@ function eraseCell(idx: number | null = selectedIdx) {
 // ─── undo / redo ─────────────────────────────────────────────────────────
 
 function undo() {
-  if (history.length === 0) return;
+  if (isPaused() || gameOver || history.length === 0) return;
   future.push(snapshot());
   restoreSnapshot(history.pop()!);
   render();
@@ -582,7 +719,7 @@ function undo() {
 }
 
 function redo() {
-  if (future.length === 0) return;
+  if (isPaused() || gameOver || future.length === 0) return;
   history.push(snapshot());
   restoreSnapshot(future.pop()!);
   render();
@@ -592,6 +729,7 @@ function redo() {
 // ─── auto-candidates ──────────────────────────────────────────────────────
 
 function autoFillCandidates() {
+  if (isPaused() || gameOver) return;
   pushHistory();
   rebuildCandidates();
   render();
@@ -601,6 +739,7 @@ function autoFillCandidates() {
 // ─── hint ─────────────────────────────────────────────────────────────────
 
 function showHint() {
+  if (isPaused() || gameOver) return;
   const hint = getHint(board, candidates);
   if (!hint) {
     showModal({
@@ -628,11 +767,13 @@ function checkWin() {
 
 function endGame(won: boolean) {
   stopTimer();
+  pauseReasons.clear();
+  hidePauseDialog();
   gameOver = true;
   gameWon = won;
 
   if (dailyMode) {
-    clearProgress();
+    clearProgress(activeDailyDateKey || undefined);
   } else {
     clearPersistence();
   }
@@ -724,11 +865,13 @@ function endGame(won: boolean) {
       ],
     });
   }
+  updatePauseButton();
 }
 
 // ─── solve button ─────────────────────────────────────────────────────────
 
 function solveBoard() {
+  if (isPaused()) return;
   if (emptyMode) {
     // In empty mode, validate and solve whatever the user typed
     if (!isValid(board)) {
@@ -757,6 +900,8 @@ function solveBoard() {
     candidates = Array.from({ length: 81 }, () => new Set<number>());
   }
   stopTimer();
+  pauseReasons.clear();
+  hidePauseDialog();
   clearPersistence();
   render();
 }
@@ -766,20 +911,20 @@ function solveBoard() {
 function wireUI() {
   // Cell click → select
   on("cellClick", (idx: number) => {
-    if (gameOver) return;
+    if (gameOver || isPaused()) return;
     selectCell(idx);
   });
 
   // Keyboard digit input from focused cell
   on("digitInput", ({ idx, digit }: { idx: number; digit: number }) => {
-    if (gameOver) return;
+    if (gameOver || isPaused()) return;
     selectCell(idx);
     placeDigit(digit);
   });
 
   // Erase from keyboard
   on("erase", (idx: number) => {
-    if (gameOver) return;
+    if (gameOver || isPaused()) return;
     eraseCell(idx);
   });
 
@@ -790,7 +935,7 @@ function wireUI() {
 
   // Hint panel actions
   on("hintApply", (hintResult: any) => {
-    if (gameOver) return;
+    if (gameOver || isPaused()) return;
     if (!hintResult.eliminations || !hintResult.eliminations.length) return;
     pushHistory();
     for (const { idx, digit } of hintResult.eliminations) {
@@ -802,7 +947,7 @@ function wireUI() {
   });
 
   on("hintResolve", (hintResult: any) => {
-    if (gameOver) return;
+    if (gameOver || isPaused()) return;
     if (!hintResult.placement) return;
     const { idx, digit } = hintResult.placement;
     pushHistory();
@@ -817,7 +962,7 @@ function wireUI() {
 
   // Digit pad buttons
   on("digitButtonClick", (digit: number) => {
-    if (gameOver) return;
+    if (gameOver || isPaused()) return;
     if (activeDigit === digit && selectedIdx === null) {
       // Toggle off
       activeDigit = null;
@@ -837,8 +982,14 @@ function wireUI() {
   bindBtn("btn-undo",    undo);
   bindBtn("btn-redo",    redo);
   bindBtn("btn-eraser",  () => eraseCell());
-  bindBtn("btn-pencil",  () => { pencilMode = !pencilMode; render(); });
+  bindBtn("btn-pencil",  () => {
+    if (isPaused() || gameOver) return;
+    pencilMode = !pencilMode;
+    render();
+  });
   bindBtn("btn-hint",    showHint);
+  bindBtn("btn-pause", pauseGame);
+  bindBtn("btn-pause-resume", resumeGame);
   bindBtn("btn-auto-candidates", autoFillCandidates);
   bindBtn("btn-solve",   () => {
     showModal({
@@ -918,7 +1069,9 @@ function wireUI() {
     getGivens: function () { return givens; },
     restoreState: function (b, c) { board = b; candidates = c; },
     render: render,
-    computeConflicts: computeConflicts
+    computeConflicts: computeConflicts,
+    pauseGame: () => acquirePause('step-solver'),
+    resumeGame: () => releasePause('step-solver')
   });
 
   // ─── Puzzle Analysis panel (delegated to AnalysisController) ────────────
@@ -947,6 +1100,7 @@ function wireUI() {
   document.addEventListener("keydown", (e) => {
     var tgt = e.target as any;
     if (tgt.tagName === "BUTTON" || tgt.tagName === "INPUT") return;
+    if (isPaused()) return;
     const key = e.key;
 
     if (key >= "1" && key <= "9") {
@@ -981,6 +1135,7 @@ function bindBtn(id: string, fn: () => void) {
 export function init() {
   initUI();
   wireUI();
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 
   // Check URL hash for shared puzzle
   var hashBoard = getHashPuzzle();
@@ -1024,12 +1179,15 @@ export function init() {
     hintsUsedThisGame = saved.hintsUsedThisGame || 0;
     history           = saved.history;
     future            = saved.future;
+    pauseReasons.clear();
+    if (saved.paused) pauseReasons.add('user');
 
     // Resume timer from saved position (no scheduleSave here — state unchanged)
     setTimer(timerSeconds);
-    startTimer();
+    if (!isPaused()) startTimer();
     render();
     updateDifficultyButtons();
+    if (isPaused()) showPauseDialog();
   } else {
     // No valid save or game was already finished — start fresh
     newGame("medium");

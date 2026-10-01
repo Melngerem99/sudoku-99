@@ -3,7 +3,7 @@
  */
 
 const STORAGE_KEY = "sudoku-game-state";
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const DEBOUNCE_MS = 500;
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -19,6 +19,7 @@ function serialize(state: any): any {
     pencilMode: state.pencilMode,
     mistakes: state.mistakes,
     timerSeconds: state.timerSeconds,
+    paused: state.paused === true,
     hintsUsedThisGame: state.hintsUsedThisGame || 0,
     gameOver: state.gameOver,
     gameWon: state.gameWon,
@@ -46,6 +47,7 @@ function deserialize(data: any): any {
     pencilMode: data.pencilMode,
     mistakes: data.mistakes,
     timerSeconds: data.timerSeconds,
+    paused: data.paused,
     hintsUsedThisGame: data.hintsUsedThisGame || 0,
     gameOver: data.gameOver,
     gameWon: data.gameWon,
@@ -80,6 +82,7 @@ function validate(data: any): boolean {
     }
     if (typeof data.mistakes !== "number" || data.mistakes < 0) return false;
     if (typeof data.timerSeconds !== "number" || data.timerSeconds < 0) return false;
+    if (typeof data.paused !== "boolean") return false;
     if (typeof data.gameOver !== "boolean") return false;
     if (typeof data.gameWon !== "boolean") return false;
     if (typeof data.pencilMode !== "boolean") return false;
@@ -102,7 +105,8 @@ export function load(): any | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw);
+    let data = JSON.parse(raw);
+    if (data && data.v === 1) data = { ...data, v: SCHEMA_VERSION, paused: false };
     if (!validate(data)) { localStorage.removeItem(STORAGE_KEY); return null; }
     return deserialize(data);
   } catch { try { localStorage.removeItem(STORAGE_KEY); } catch {} return null; }

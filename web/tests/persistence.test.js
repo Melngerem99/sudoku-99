@@ -13,6 +13,7 @@ h.describe('Persistence — save and load round-trip', function () {
     pencilMode: true,
     mistakes: 2,
     timerSeconds: 145,
+    paused: true,
     gameOver: false,
     gameWon: false,
     emptyMode: false,
@@ -28,6 +29,7 @@ h.describe('Persistence — save and load round-trip', function () {
   h.assertArrayEqual(loaded.board, h.FIXTURE_PUZZLE, 'board preserved');
   h.assertEqual(loaded.mistakes, 2, 'mistakes preserved');
   h.assertEqual(loaded.timerSeconds, 145, 'timer preserved');
+  h.assertEqual(loaded.paused, true, 'paused state preserved');
   h.assertEqual(loaded.pencilMode, true, 'pencilMode preserved');
   h.assertEqual(loaded.currentDifficulty, 'hard', 'difficulty preserved');
   h.assertEqual(loaded.hintsUsedThisGame, 3, 'hints preserved');
@@ -44,6 +46,36 @@ h.describe('Persistence — corrupted data handled', function () {
   localStorage.setItem('sudoku-game-state', '{"v":1,"board":[1,2,3]}');
   loaded = Persistence.load();
   h.assertNull(loaded, 'wrong array length returns null');
+});
+
+h.describe('Persistence — migrates version 1 saves', function () {
+  var state = {
+    board: h.FIXTURE_PUZZLE,
+    solution: h.FIXTURE_SOLUTION,
+    givens: h.FIXTURE_PUZZLE,
+    candidates: h.FIXTURE_PUZZLE.map(function () { return new Set(); }),
+    pencilMode: false,
+    mistakes: 1,
+    timerSeconds: 85,
+    gameOver: false,
+    gameWon: false,
+    emptyMode: false,
+    currentDifficulty: 'medium',
+    hintsUsedThisGame: 0,
+    history: [],
+    future: []
+  };
+  Persistence.saveImmediate(state);
+  var saved = JSON.parse(localStorage.getItem('sudoku-game-state'));
+  saved.v = 1;
+  delete saved.paused;
+  localStorage.setItem('sudoku-game-state', JSON.stringify(saved));
+
+  var loaded = Persistence.load();
+  h.assertNotNull(loaded, 'legacy save loads');
+  h.assertEqual(loaded.paused, false, 'legacy save defaults to running');
+  h.assertArrayEqual(loaded.board, h.FIXTURE_PUZZLE, 'legacy board preserved');
+  h.assertEqual(loaded.timerSeconds, 85, 'legacy timer preserved');
 });
 
 h.describe('Persistence — clear removes data', function () {

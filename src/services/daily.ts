@@ -8,6 +8,7 @@ type Board = number[];
 
 const HISTORY_KEY = "sudoku-daily-history";
 const PROGRESS_PREFIX = "sudoku-daily-prog-";
+const PROGRESS_VERSION = 1;
 const EPOCH_YEAR = 2025;
 const EPOCH_MONTH = 0;
 const EPOCH_DAY = 1;
@@ -129,30 +130,38 @@ export function getTodayPuzzle(): { puzzle: Board; solution: Board; difficulty: 
   return { puzzle: result.puzzle, solution: result.solution, difficulty, dateKey, dayNumber: getDayNumber(dateKey) };
 }
 
-function progressKey(): string { return PROGRESS_PREFIX + getDateKey(); }
+function progressKey(dateKey = getDateKey()): string { return PROGRESS_PREFIX + dateKey; }
 
-export function saveProgress(state: any): void {
+export function saveProgress(state: any, dateKey = getDateKey()): void {
   try {
     const data = {
+      v: PROGRESS_VERSION,
       board: state.board,
       candidates: state.candidates.map((s: Set<number>) => Array.from(s)),
       mistakes: state.mistakes,
       timerSeconds: state.timerSeconds,
+      paused: state.paused === true,
       hintsUsed: state.hintsUsed,
       pencilMode: state.pencilMode,
       history: (state.history || []).slice(-20).map((snap: any) => ({ board: snap.board, candidates: snap.candidates.map((s: Set<number>) => Array.from(s)) })),
       future: (state.future || []).slice(-20).map((snap: any) => ({ board: snap.board, candidates: snap.candidates.map((s: Set<number>) => Array.from(s)) })),
     };
-    localStorage.setItem(progressKey(), JSON.stringify(data));
+    localStorage.setItem(progressKey(dateKey), JSON.stringify(data));
   } catch {}
 }
 
-export function loadProgress(): any | null {
+export function loadProgress(dateKey = getDateKey()): any | null {
   try {
-    const raw = localStorage.getItem(progressKey());
+    const raw = localStorage.getItem(progressKey(dateKey));
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (!data || !Array.isArray(data.board) || data.board.length !== 81) return null;
+    const legacy = data.v === undefined;
+    if (!legacy && data.v !== PROGRESS_VERSION) return null;
+    if (!Array.isArray(data.candidates) || data.candidates.length !== 81) return null;
+    if (!legacy && typeof data.paused !== "boolean") return null;
+    if (legacy) data.paused = false;
+    if (data.candidates.some((arr: unknown) => !Array.isArray(arr))) return null;
     data.candidates = data.candidates.map((arr: number[]) => new Set(arr));
     data.history = Array.isArray(data.history) ? data.history.map((snap: any) => ({ board: snap.board, candidates: snap.candidates.map((arr: number[]) => new Set(arr)) })) : [];
     data.future = Array.isArray(data.future) ? data.future.map((snap: any) => ({ board: snap.board, candidates: snap.candidates.map((arr: number[]) => new Set(arr)) })) : [];
@@ -160,8 +169,8 @@ export function loadProgress(): any | null {
   } catch { return null; }
 }
 
-export function clearProgress(): void {
-  try { localStorage.removeItem(progressKey()); } catch {}
+export function clearProgress(dateKey = getDateKey()): void {
+  try { localStorage.removeItem(progressKey(dateKey)); } catch {}
 }
 
 function loadHistory(): { completions: Record<string, any> } {
@@ -188,7 +197,7 @@ export function recordCompletion(dateKey: string, timeSeconds: number, mistakes:
   const history = loadHistory();
   history.completions[dateKey] = { time: timeSeconds, mistakes, hintsUsed, difficulty: getDifficultyForDate(dateKey) };
   saveHistory(history);
-  clearProgress();
+  clearProgress(dateKey);
 }
 
 export function getHistory(): { completions: Record<string, any>; currentStreak: number; longestStreak: number } {

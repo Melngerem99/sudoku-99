@@ -19,6 +19,8 @@ let getGivens: () => Board = () => [];
 let restoreStateFn: (board: Board, candidates: CandidateGrid) => void = () => {};
 let renderGame: () => void = () => {};
 let computeConflictsFn: () => Set<number> = () => new Set();
+let pauseGameFn: () => void = () => {};
+let resumeGameFn: () => void = () => {};
 
 // ─── Internal state ─────────────────────────────────────────────────────────
 
@@ -30,6 +32,7 @@ let speed = 2000;
 let originalBoard: Board | null = null;
 let originalCandidates: CandidateGrid | null = null;
 let trap: FocusTrap | null = null;
+let pausedForStepSolver = false;
 
 const SPEEDS: Record<string, number> = { slow: 3000, normal: 2000, fast: 800 };
 
@@ -47,6 +50,8 @@ export function open(): void {
   originalBoard = board.slice();
   originalCandidates = getCandidates().map(s => new Set(s));
 
+  pauseGameFn();
+  pausedForStepSolver = true;
   path = computePath(board);
   stepIndex = -1;
   active = true;
@@ -103,6 +108,10 @@ export function close(): void {
 
   setAppAriaHidden(false);
   document.getElementById("btn-step-solve")?.focus();
+  if (pausedForStepSolver) {
+    pausedForStepSolver = false;
+    resumeGameFn();
+  }
 }
 
 export function isActive(): boolean {
@@ -253,6 +262,8 @@ export interface StepSolverInitConfig {
   restoreState: (board: Board, candidates: CandidateGrid) => void;
   render: () => void;
   computeConflicts: () => Set<number>;
+  pauseGame?: () => void;
+  resumeGame?: () => void;
 }
 
 export function init(config: StepSolverInitConfig): void {
@@ -262,6 +273,8 @@ export function init(config: StepSolverInitConfig): void {
   restoreStateFn = config.restoreState;
   renderGame = config.render;
   computeConflictsFn = config.computeConflicts;
+  pauseGameFn = config.pauseGame || (() => {});
+  resumeGameFn = config.resumeGame || (() => {});
 
   const openBtn = document.getElementById("btn-step-solve");
   if (openBtn) openBtn.addEventListener("click", open);
