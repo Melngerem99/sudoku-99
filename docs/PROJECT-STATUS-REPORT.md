@@ -1,6 +1,6 @@
 # Sudoku-99 Current Status
 
-**Updated:** 2026-10-01
+**Updated:** 2026-10-15
 
 ## Product
 
@@ -12,7 +12,7 @@ Sudoku-99 is a local-first Sudoku Progressive Web App. The web client is active;
 |---|---|
 | `npm run build` | Pass |
 | `npm run typecheck` | Pass |
-| `npm test` | 400 tests pass |
+| `npm test` | 702 tests pass |
 | `npm run verify` | Pass |
 | Production bundle | About 91 KB raw / 27 KB gzip |
 | Runtime | TypeScript, strict mode, esbuild IIFE |
@@ -29,6 +29,7 @@ Run the app locally using the instructions in [README.md](../README.md).
 - Statistics and local puzzle library
 - Puzzle import/export and URL sharing
 - Pause/Resume for generated, imported, and daily timed games, including background pause and date-bound daily restore
+- Phase 12.0 Manual Puzzle Entry: entry lifecycle, finish-entry validation, imported statistics, candidate workflow, and session restoration
 - Phase 9.0 Feature Gap Assessment
 - Phase 10.0 implementation and current dark/light/mobile repository screenshots
 - Window shim audit, DOM shim cleanup, and technique-splitting feasibility study

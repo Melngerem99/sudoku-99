@@ -1,7 +1,7 @@
 # Phase 11 - Accessibility and Mobile Readiness
 
 **Status:** Engineering complete; manual release sign-off pending
-**Baseline:** 633 automated tests pass and `npm run verify` passes. Phase 11.1-11.5 engineering work is implemented. Manual accessibility and installed-device acceptance remain outstanding.
+**Baseline:** 633 automated tests passed at Phase 11 engineering completion; **702 tests** pass as of Phase 12.0. Phase 11.1-11.5 engineering work is implemented. Manual accessibility and installed-device acceptance remain outstanding.
 **Scope:** Track implementation and close the release gate using the [Phase 11.6 manual validation checklist](PHASE-11.6-MANUAL-VALIDATION-CHECKLIST.md).
 
 ## Prioritized Backlog
@@ -124,7 +124,7 @@ None of the six known findings is downgraded to this tier. The acceptance criter
 6. **11.6 Manual release validation:** checklist prepared; execution and sign-off pending.
 7. **Post-release:** consider broader automated accessibility checks and device coverage.
 
-The engineering baseline for Phase 11 is **633 passing tests** with `npm run verify` passing. The manual validation pass is estimated at **12-16 tester-hours**, plus 1-2 hours if JAWS is applicable and available; see the [manual checklist](PHASE-11.6-MANUAL-VALIDATION-CHECKLIST.md).
+The engineering baseline for Phase 11 is **633 passing tests** with `npm run verify` passing. As of Phase 12.0 completion the suite stands at **702 passing tests**. The manual validation pass is estimated at **12-16 tester-hours**, plus 1-2 hours if JAWS is applicable and available; see the [manual checklist](PHASE-11.6-MANUAL-VALIDATION-CHECKLIST.md).
 
 ## Release Gate Recommendation
 
@@ -139,7 +139,6 @@ Complete and sign off **11.6, manual release validation**. Implementation is com
 - [Project handoff](PROJECT-HANDOFF.md)
 - [README](../README.md)
 - [Feature gap assessment](FEATURE-GAP-ASSESSMENT.md)
-- [Phase 10.0 pause/resume plan](PHASE-10.0-PAUSE-RESUME-PLAN.md)
 - [Accessibility steering](../.kiro/steering/accessibility.md)
 - [Accessibility audit tasks](../.kiro/specs/accessibility-audit/tasks.md)
 - [Accessibility audit checklist](../.kiro/specs/accessibility-audit/AUDIT-CHECKLIST.md)

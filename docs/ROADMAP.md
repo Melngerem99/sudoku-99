@@ -24,6 +24,10 @@ Completed. The assessment prioritizes player performance history and first-game 
 
 Completed. Supports generated, imported, and daily timed games; pauses on explicit action and backgrounding; preserves state through reload and UTC rollover; retains local-only operation.
 
+### Phase 12.0 — Manual Puzzle Entry
+
+Completed. Players can enter their own puzzle givens directly into the grid. The workflow validates for row/column/box conflicts, no-solution boards, and ambiguous puzzles before converting to a live game. Imported-puzzle statistics are tracked in the existing statistics service. Candidate auto-fill is available after entry. Full session backup and restore is supported so cancel always restores the previous game.
+
 ## Open Release Readiness
 
 - Complete manual accessibility, installed-PWA, offline, persistence, and mobile release acceptance using the [Phase 11.6 checklist](PHASE-11.6-MANUAL-VALIDATION-CHECKLIST.md).

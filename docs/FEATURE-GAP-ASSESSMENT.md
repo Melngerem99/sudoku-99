@@ -9,7 +9,7 @@ Sudoku-99 is an offline-capable Sudoku web app and the active product in this re
 
 The product therefore has a broad play-and-analysis foundation. The stated audience priority is players focused on competitive improvement. The largest remaining opportunities are meaningful personal progress feedback and first-game orientation, rather than adding another core Sudoku engine feature or online competition.
 
-The current automated baseline is 400 passing tests. Phase 10.0 has since implemented the pause/resume opportunity; accessibility and installed-device acceptance work remains open in the [project handoff](PROJECT-HANDOFF.md).
+The automated baseline at assessment time was 400 passing tests; 702 tests pass as of Phase 12.0. Phase 10.0 implemented pause/resume and Phase 12.0 implemented manual puzzle entry; accessibility and installed-device acceptance work remains open in the [project handoff](PROJECT-HANDOFF.md).
 
 ## Assessment Method
 

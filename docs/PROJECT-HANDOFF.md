@@ -13,12 +13,13 @@ Sudoku-99 is a local-first Progressive Web App. The web application in `src/` an
 - Daily session restore across UTC rollover and continuation of unfinished prior-day challenges
 - Repository screenshots refreshed for dark desktop, light desktop, and mobile layouts
 - Window shim audit, DOM shim cleanup, and technique-splitting feasibility study
+- Phase 12.0 Manual Puzzle Entry: manual entry lifecycle, finish-entry validation (conflicts, no solution, multiple solutions), imported-puzzle statistics, candidate workflow, and session restoration
 
 ## Verification and Bundle
 
 - `npm run build` passes
 - `npm run typecheck` passes
-- `npm test` passes: **633 tests**
+- `npm test` passes: **702 tests**
 - `npm run verify` passes
 - Production bundle: approximately **91 KB raw / 27 KB gzip**
 - Node.js requirement: 18 or newer
