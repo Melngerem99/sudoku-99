@@ -691,3 +691,389 @@ h.describe('Modal focus containment — generic modal over Statistics', function
   StatisticsController.close();
   assertEqual(document.getElementById('app').inert, false, 'closing Statistics restores the app background');
 });
+
+h.describe('GameController — manual entry lifecycle', function () {
+  const { clock, document } = loadApp();
+  const toolbar = document.getElementById('toolbar');
+  const entryActions = document.getElementById('manual-entry-actions');
+
+  // 1. Assert initial state before entering manual entry mode
+  assertEqual(toolbar.hidden, false, 'toolbar is visible before entering manual entry mode');
+  assertEqual(entryActions.hidden, true, 'entry-actions are hidden before entering manual entry mode');
+
+  // 2. Trigger manual entry mode: click btn-manual-entry, then confirm the modal
+  document.getElementById('btn-manual-entry').click();
+  document.getElementById('modal-footer').children[0].click();
+
+  // 3. Assert toolbar is now hidden and entry-actions are visible
+  assertEqual(toolbar.hidden, true, 'toolbar is hidden after entering manual entry mode');
+  assertEqual(entryActions.hidden, false, 'entry-actions are visible after entering manual entry mode');
+
+  // 4. Enter a digit into cell 2 (empty in FIXTURE_PUZZLE)
+  UI.cells[2].click();
+  dispatchKey(UI.cells[2], '7');
+  assertEqual(UI.cells[2].querySelector('.cell-digit').textContent, '7', 'cell 2 shows placed digit 7');
+
+  // 5. Also enter digits at cells 10 and 20 (both 0 in FIXTURE_PUZZLE)
+  UI.cells[10].click();
+  dispatchKey(UI.cells[10], '3');
+  assertEqual(UI.cells[10].querySelector('.cell-digit').textContent, '3', 'cell 10 shows placed digit 3');
+
+  UI.cells[20].click();
+  dispatchKey(UI.cells[20], '1');
+  assertEqual(UI.cells[20].querySelector('.cell-digit').textContent, '1', 'cell 20 shows placed digit 1');
+
+  // 6. Click manual-entry-clear
+  document.getElementById('manual-entry-clear').click();
+
+  // 7. Assert cells 2, 10, 20 all show empty text content
+  assertEqual(UI.cells[2].querySelector('.cell-digit').textContent, '', 'cell 2 is cleared after manual-entry-clear');
+  assertEqual(UI.cells[10].querySelector('.cell-digit').textContent, '', 'cell 10 is cleared after manual-entry-clear');
+  assertEqual(UI.cells[20].querySelector('.cell-digit').textContent, '', 'cell 20 is cleared after manual-entry-clear');
+
+  // 8. Assert still in entry mode after clear
+  assertEqual(toolbar.hidden, true, 'toolbar remains hidden after manual-entry-clear');
+  assertEqual(entryActions.hidden, false, 'entry-actions remain visible after manual-entry-clear');
+});
+
+h.describe('GameController — manual entry finish: multiple solutions', function () {
+  const { document } = loadApp();
+  const toolbar = document.getElementById('toolbar');
+  const entryActions = document.getElementById('manual-entry-actions');
+
+  // Enter manual entry mode: click btn-manual-entry, then confirm the modal
+  document.getElementById('btn-manual-entry').click();
+  document.getElementById('modal-footer').children[0].click();
+
+  // Verify we are in manual entry mode
+  assertEqual(toolbar.hidden, true, 'toolbar is hidden in entry mode');
+  assertEqual(entryActions.hidden, false, 'entry-actions are visible in entry mode');
+
+  // Place only 2 digits (far fewer than the 17-clue minimum for uniqueness)
+  // Cell 0 and cell 10 — two digits cannot produce a unique solution
+  UI.cells[0].click();
+  dispatchKey(UI.cells[0], '5');
+
+  UI.cells[10].click();
+  dispatchKey(UI.cells[10], '7');
+
+  // Attempt to finish — board has multiple solutions
+  document.getElementById('manual-entry-finish').click();
+
+  // Modal should be shown with "Multiple Solutions" title
+  assertEqual(document.getElementById('modal-overlay').classList.contains('active'), true, 'modal-overlay is active for a multi-solution board');
+  assertEqual(document.getElementById('modal-title').textContent, 'Multiple Solutions', 'modal title is "Multiple Solutions"');
+
+  // Must remain in manual entry mode (toolbar hidden, entry-actions visible)
+  assertEqual(toolbar.hidden, true, 'toolbar remains hidden while multiple-solutions modal is shown');
+  assertEqual(entryActions.hidden, false, 'entry-actions remain visible while multiple-solutions modal is shown');
+});
+
+h.describe('GameController — manual entry finish: no solution', function () {
+  const { document } = loadApp();
+
+  // Board derived from FIXTURE_PUZZLE by placing a wrong extra clue at cell 2.
+  // Cell 2 (row 0, col 2) is empty (0) in FIXTURE_PUZZLE; the solution requires 4 there.
+  // We place 1 instead — which does NOT conflict with any FIXTURE_PUZZLE given:
+  //   row 0 givens: [5,3,_,_,7,_,_,_,_] — no 1
+  //   col 2 givens: only cell 20 = 8          — no 1
+  //   box 0 givens: [5,3,_,6,_,_,_,9,8]       — no 1
+  // So isValid() passes, but the solver finds 0 completions (1 is wrong; 4 is blocked).
+  var noSolutionBoard = h.FIXTURE_PUZZLE.slice();
+  noSolutionBoard[2] = 1; // forces an unsolvable contradiction deep in the constraint graph
+
+  // Verify our assumption before running the main assertions
+  assertEqual(Solver.countSolutions(noSolutionBoard, 2), 0,
+    'test setup: board with cell 2=1 is verified to have no solution');
+
+  // Enter manual entry mode: click btn-manual-entry, then confirm via the modal
+  document.getElementById('btn-manual-entry').click();
+  document.getElementById('modal-footer').children[0].click();
+
+  // Enter the unsolvable board cell-by-cell (skip zeros)
+  for (var i = 0; i < 81; i++) {
+    if (noSolutionBoard[i] !== 0) {
+      UI.cells[i].click();
+      dispatchKey(UI.cells[i], String(noSolutionBoard[i]));
+    }
+  }
+
+  // Attempt to finish entry — the controller should reject it
+  document.getElementById('manual-entry-finish').click();
+
+  // Requirement 4.1: modal must be shown with title "No Solution"
+  assertEqual(document.getElementById('modal-overlay').classList.contains('active'), true,
+    'no-solution board triggers the validation modal');
+  assertEqual(document.getElementById('modal-title').textContent, 'No Solution',
+    'modal title is "No Solution" for a board with zero completions');
+
+  // Requirement 4.2: controller must stay in manual entry mode
+  assertEqual(document.getElementById('toolbar').hidden, true,
+    'toolbar remains hidden while in manual entry mode after no-solution rejection');
+  assertEqual(document.getElementById('manual-entry-actions').hidden, false,
+    'entry-actions remain visible while in manual entry mode after no-solution rejection');
+});
+
+h.describe('GameController — manual entry finish: conflicting digits', function () {
+  const { document } = loadApp();
+  const toolbar = document.getElementById('toolbar');
+  const entryActions = document.getElementById('manual-entry-actions');
+
+  // Enter manual entry mode: click btn-manual-entry, then confirm the modal
+  document.getElementById('btn-manual-entry').click();
+  document.getElementById('modal-footer').children[0].click();
+
+  // Verify we are in manual entry mode before proceeding
+  assertEqual(toolbar.hidden, true, 'toolbar is hidden after entering manual entry mode');
+  assertEqual(entryActions.hidden, false, 'entry-actions are visible after entering manual entry mode');
+
+  // Place digit 5 at cell index 0 (row 0, col 0)
+  UI.cells[0].click();
+  dispatchKey(UI.cells[0], '5');
+
+  // Place digit 5 at cell index 1 (row 0, col 1) — same row as cell 0, creates row conflict
+  UI.cells[1].click();
+  dispatchKey(UI.cells[1], '5');
+
+  // Attempt to finish — board has a row conflict (two 5s in row 0)
+  document.getElementById('manual-entry-finish').click();
+
+  // Requirement 3.1: modal must be shown with title "Conflicting Entries"
+  assertEqual(document.getElementById('modal-overlay').classList.contains('active'), true,
+    'modal-overlay is active for a board with conflicting digits');
+  assertEqual(document.getElementById('modal-title').textContent, 'Conflicting Entries',
+    'modal title is "Conflicting Entries" for a board with a row conflict');
+
+  // Requirement 3.2: controller must remain in manual entry mode (toolbar hidden, entry-actions visible)
+  assertEqual(toolbar.hidden, true,
+    'toolbar remains hidden while "Conflicting Entries" modal is shown');
+  assertEqual(entryActions.hidden, false,
+    'entry-actions remain visible while "Conflicting Entries" modal is shown');
+});
+
+h.describe('GameController — manual entry finish: valid puzzle', function () {
+  // Use a fresh storage so Statistics.imported.started starts at 0,
+  // guaranteeing the assertion imported.started === 1 is unambiguous.
+  const { clock, document } = loadApp(h.createMockStorage());
+  const toolbar = document.getElementById('toolbar');
+  const entryActions = document.getElementById('manual-entry-actions');
+
+  // Step 1: Enter manual entry mode via btn-manual-entry → modal confirm
+  document.getElementById('btn-manual-entry').click();
+  document.getElementById('modal-footer').children[0].click();
+
+  assertEqual(toolbar.hidden, true, 'toolbar is hidden after entering manual entry mode');
+  assertEqual(entryActions.hidden, false, 'entry-actions are visible after entering manual entry mode');
+
+  // Step 2: Enter all non-zero cells from FIXTURE_PUZZLE
+  for (var i = 0; i < 81; i++) {
+    if (h.FIXTURE_PUZZLE[i] !== 0) {
+      UI.cells[i].click();
+      dispatchKey(UI.cells[i], String(h.FIXTURE_PUZZLE[i]));
+    }
+  }
+
+  // Step 3: Click manual-entry-finish
+  document.getElementById('manual-entry-finish').click();
+
+  // Requirement 2.1: modal-overlay must NOT be active (no validation error)
+  assertEqual(document.getElementById('modal-overlay').classList.contains('active'), false,
+    'modal-overlay is not active after finishing a valid unique puzzle');
+
+  // Requirement 2.2: game timer must be running (two intervals: tick + checkpoint)
+  assertEqual(clock.intervals.size, 2,
+    'game timer has two active intervals after finishing valid entry');
+
+  // Requirement 2.3: Statistics records one started imported game
+  assertEqual(global.Statistics.getStats().perDifficulty.imported.started, 1,
+    'Statistics records one started imported game');
+
+  // Flush the 500ms debounced scheduleSave so Persistence.load() returns the new state.
+  clock.tickTimeout(500);
+
+  // Requirement 2.4: Persistence stores currentDifficulty as 'imported'
+  assertEqual(global.Persistence.load().currentDifficulty, 'imported',
+    'Persistence saves currentDifficulty as "imported" after valid entry');
+
+  // Requirement 2.5: toolbar visible, entry-actions hidden
+  assertEqual(toolbar.hidden, false,
+    'toolbar is restored to visible after finishing valid entry');
+  assertEqual(entryActions.hidden, true,
+    'entry-actions are hidden after finishing valid entry');
+});
+
+h.describe('GameController — manual entry persistence isolation', function () {
+  // Use a fresh storage so pre-entry state is unambiguous
+  const { document } = loadApp(h.createMockStorage());
+
+  // Step 1: Capture pre-entry persistence state
+  var preEntryBoard = global.Persistence.load().board.slice();
+  var preEntryDifficulty = global.Persistence.load().currentDifficulty;
+
+  // Step 2: Enter manual entry mode via btn-manual-entry → modal confirm
+  document.getElementById('btn-manual-entry').click();
+  document.getElementById('modal-footer').children[0].click();
+
+  // Step 3: Place digits at cells 2, 5, 6 (all 0 in FIXTURE_PUZZLE — guaranteed editable)
+  UI.cells[2].click(); dispatchKey(UI.cells[2], '9');
+  UI.cells[5].click(); dispatchKey(UI.cells[5], '1');
+  UI.cells[6].click(); dispatchKey(UI.cells[6], '2');
+
+  // Step 4: Read the persistence state while in entry mode
+  var duringEntryState = global.Persistence.load();
+
+  // Requirement 7.1: board must not have been overwritten by manual entry interactions
+  h.assertArrayEqual(duringEntryState.board, preEntryBoard,
+    'persistence board not modified during manual entry');
+
+  // Requirement 7.2: difficulty discriminator must remain unchanged
+  assertEqual(duringEntryState.currentDifficulty, preEntryDifficulty,
+    'persistence difficulty not overwritten during manual entry');
+
+  // Extra guard: the digits placed during entry must NOT appear in persistence
+  assertEqual(duringEntryState.board[2], 0, 'manual entry cell 2 digit not persisted');
+  assertEqual(duringEntryState.board[5], 0, 'manual entry cell 5 digit not persisted');
+  assertEqual(duringEntryState.board[6], 0, 'manual entry cell 6 digit not persisted');
+});
+
+h.describe('GameController — manual entry cancel restore', function () {
+  // Use a fresh storage so the seeded medium game is unambiguous
+  const { clock, document } = loadApp(h.createMockStorage());
+
+  // Requirement 6: timer should be running before entry (tick + checkpoint)
+  assertEqual(clock.intervals.size, 2, 'two intervals active before entering manual entry mode');
+
+  // Enter manual entry mode: btn-manual-entry → confirm modal ("Start Entry")
+  document.getElementById('btn-manual-entry').click();
+  document.getElementById('modal-footer').children[0].click();
+
+  // Timer must be stopped during manual entry
+  assertEqual(clock.intervals.size, 0, 'timer is stopped while in manual entry mode');
+
+  // Verify we are in entry mode
+  assertEqual(document.getElementById('toolbar').hidden, true, 'toolbar is hidden after entering manual entry mode');
+  assertEqual(document.getElementById('manual-entry-actions').hidden, false, 'entry-actions are visible after entering manual entry mode');
+
+  // FIXTURE_PUZZLE row 0: [5,3,0,0,7,0,0,0,0]
+  // Cells 2 (idx=2), 5 (idx=5), 6 (idx=6) are 0 — safely editable during entry
+  UI.cells[2].click();
+  dispatchKey(UI.cells[2], '9');
+
+  UI.cells[5].click();
+  dispatchKey(UI.cells[5], '1');
+
+  UI.cells[6].click();
+  dispatchKey(UI.cells[6], '2');
+
+  // Verify digits were placed before cancelling
+  assertEqual(UI.cells[2].querySelector('.cell-digit').textContent, '9', 'cell 2 shows placed digit 9 before cancel');
+  assertEqual(UI.cells[5].querySelector('.cell-digit').textContent, '1', 'cell 5 shows placed digit 1 before cancel');
+  assertEqual(UI.cells[6].querySelector('.cell-digit').textContent, '2', 'cell 6 shows placed digit 2 before cancel');
+
+  // Cancel manual entry — this should restore the pre-entry board state
+  document.getElementById('manual-entry-cancel').click();
+
+  // Requirement 6.1: board restored to pre-entry FIXTURE_PUZZLE values
+  // Cells 2, 5, 6 were 0 in FIXTURE_PUZZLE → should be empty ('') after restore
+  assertEqual(UI.cells[2].querySelector('.cell-digit').textContent, '', 'cell 2 (was 0 in FIXTURE_PUZZLE) is empty after cancel');
+  assertEqual(UI.cells[5].querySelector('.cell-digit').textContent, '', 'cell 5 (was 0 in FIXTURE_PUZZLE) is empty after cancel');
+  assertEqual(UI.cells[6].querySelector('.cell-digit').textContent, '', 'cell 6 (was 0 in FIXTURE_PUZZLE) is empty after cancel');
+
+  // Non-zero FIXTURE_PUZZLE cells should be restored to their given digits
+  // Cell 0 = 5, cell 4 = 7 in FIXTURE_PUZZLE
+  assertEqual(UI.cells[0].querySelector('.cell-digit').textContent, '5', 'cell 0 (given = 5 in FIXTURE_PUZZLE) is restored after cancel');
+  assertEqual(UI.cells[4].querySelector('.cell-digit').textContent, '7', 'cell 4 (given = 7 in FIXTURE_PUZZLE) is restored after cancel');
+
+  // Requirement 6.2: timer resumed after cancel
+  assertEqual(clock.intervals.size, 2, 'two intervals active after cancelling manual entry mode');
+
+  // Requirement 6.3: toolbar visible, entry-actions hidden
+  assertEqual(document.getElementById('toolbar').hidden, false, 'toolbar is restored to visible after cancel');
+  assertEqual(document.getElementById('manual-entry-actions').hidden, true, 'entry-actions are hidden after cancel');
+
+  // Requirement 6.4: currentDifficulty restored to its pre-entry value ('medium')
+  assertEqual(global.Persistence.load().currentDifficulty, 'medium', 'currentDifficulty is restored to "medium" after cancel');
+});
+
+h.describe('GameController — manual entry auto-candidates guard', function () {
+  // Use a fresh storage to keep Statistics clean and pre-entry state unambiguous.
+  const { clock, document } = loadApp(h.createMockStorage());
+
+  // ── Part A: auto-fill candidates is blocked (no persistence write) during entry ──
+
+  // Capture the board snapshot written by seedGame before entering manual entry mode.
+  var preEntryBoard = global.Persistence.load().board.slice();
+
+  // Step 1: Enter manual entry mode via btn-manual-entry → modal confirm ("Start Entry")
+  document.getElementById('btn-manual-entry').click();
+  document.getElementById('modal-footer').children[0].click();
+
+  assertEqual(document.getElementById('toolbar').hidden, true, 'toolbar is hidden in entry mode');
+  assertEqual(document.getElementById('manual-entry-actions').hidden, false, 'entry-actions are visible in entry mode');
+
+  // Step 2: Place a few given clues from FIXTURE_PUZZLE to make the board non-trivial
+  // Cell 0 = 5, cell 4 = 7, cell 9 = 6 (all non-zero in FIXTURE_PUZZLE)
+  UI.cells[0].click(); dispatchKey(UI.cells[0], '5');
+  UI.cells[4].click(); dispatchKey(UI.cells[4], '7');
+  UI.cells[9].click(); dispatchKey(UI.cells[9], '6');
+
+  // Step 3: Click btn-auto-candidates during entry mode.
+  // autoFillCandidates() will run rebuildCandidates() in memory but scheduleSave()
+  // is a no-op during manualEntryMode, so Persistence must be unchanged.
+  document.getElementById('btn-auto-candidates').click();
+
+  // Requirement 8.1: Persistence must NOT have been updated during manual entry.
+  // The board written to storage should still match the pre-entry seeded board.
+  h.assertArrayEqual(
+    global.Persistence.load().board,
+    preEntryBoard,
+    'auto-candidates during entry does not write to persistence (board unchanged)'
+  );
+
+  // Candidates were also written to storage only by scheduleSave, so they should
+  // still be the empty Sets that seedGame wrote.
+  assert(
+    global.Persistence.load().candidates.every(function (s) { return s.size === 0; }),
+    'auto-candidates during entry does not persist any candidate sets'
+  );
+
+  // ── Part B: auto-fill candidates works normally after a successful finish ──
+
+  // First clear the partial entry and then enter all FIXTURE_PUZZLE clues.
+  document.getElementById('manual-entry-clear').click();
+
+  // Enter all non-zero FIXTURE_PUZZLE clues (same pattern as Suite 2)
+  for (var i = 0; i < 81; i++) {
+    if (h.FIXTURE_PUZZLE[i] !== 0) {
+      UI.cells[i].click();
+      dispatchKey(UI.cells[i], String(h.FIXTURE_PUZZLE[i]));
+    }
+  }
+
+  // Finish manual entry — valid unique puzzle, so game starts normally
+  document.getElementById('manual-entry-finish').click();
+
+  // Modal must NOT be active (no validation error)
+  assertEqual(
+    document.getElementById('modal-overlay').classList.contains('active'), false,
+    'no validation error after entering FIXTURE_PUZZLE'
+  );
+
+  // Flush the 500ms debounced scheduleSave so Persistence reflects the new game state
+  clock.tickTimeout(500);
+
+  // Confirm we are out of entry mode (toolbar visible)
+  assertEqual(document.getElementById('toolbar').hidden, false, 'toolbar is visible after finishing entry');
+
+  // Step 4: Click btn-auto-candidates after a successful finish
+  document.getElementById('btn-auto-candidates').click();
+
+  // Flush the debounced save so candidates are persisted
+  clock.tickTimeout(500);
+
+  // Requirement 8.2: at least one empty cell must now have candidates populated
+  assert(
+    global.Persistence.load().candidates.some(function (s) { return s.size > 0; }),
+    'auto-candidates after finish populates at least one cell candidate set'
+  );
+});

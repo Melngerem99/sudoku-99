@@ -1,0 +1,158 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. Suite 1 — Manual entry lifecycle": [
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893094750
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893107343
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893152474
+      }
+    ],
+    "2. Suite 2 — Finish entry: valid unique puzzle": [
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893095188
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893156578
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790895672745
+      }
+    ],
+    "3. Suite 3 — Finish entry: conflicting digits": [
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893095688
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893157191
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790895673179
+      }
+    ],
+    "4. Suite 4 — Finish entry: no valid solution": [
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893096165
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893157845
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790895673778
+      }
+    ],
+    "5. Suite 5 — Finish entry: multiple solutions": [
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893096716
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893158081
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790895674057
+      }
+    ],
+    "6. Suite 6 — Cancel restore": [
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893097306
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790895677870
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790896111325
+      }
+    ],
+    "7. Suite 7 — Persistence isolation during entry": [
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893097671
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790895678422
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790896111875
+      }
+    ],
+    "8. Suite 8 — Auto-fill candidates blocked during entry, available after finish": [
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893098272
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790895678751
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790896112341
+      }
+    ],
+    "9. Checkpoint — run test suite and confirm all new suites pass": [
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790893098976
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790896116021
+      },
+      {
+        "executionId": "5167642d-a7a0-4cd1-bc32-c965017c6ced",
+        "chatSessionId": "sess_90d2e01d-e44b-4a67-9a2b-dff44ac47505",
+        "timestamp": 1790896134418
+      }
+    ]
+  }
+}
