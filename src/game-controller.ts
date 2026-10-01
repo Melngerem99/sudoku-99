@@ -9,7 +9,7 @@ import { computePath } from './core/step-solver';
 import { analyze } from './core/difficulty';
 import { generate } from './services/generator';
 import { getHashPuzzle, validate, clearHash } from './services/import-export';
-import { scheduleSave as persistScheduleSave, saveImmediate, load as loadPersistence, clear as clearPersistence } from './services/persistence';
+import { scheduleSave as persistScheduleSave, cancelScheduledSave, saveImmediate, load as loadPersistence, clear as clearPersistence } from './services/persistence';
 import { recordGameStart, recordWin, recordLoss } from './services/statistics';
 import { getDateKey, getTodayStatus, getPuzzleForDate, loadProgress, loadActiveProgress, saveProgress, clearProgress, deactivateActiveProgress, recordCompletion, getShareText } from './services/daily';
 import { $btn } from './ui/dom-helpers';
@@ -54,6 +54,8 @@ let pauseCoveredDialogs: Array<{ element: HTMLElement; ariaHidden: string | null
 let gameOver     = false;
 let gameWon      = false;
 let emptyMode    = false;
+let manualEntryMode = false;
+let manualEntryBackup: any = null;
 let hintsUsedThisGame = 0;
 let dailyMode    = false;
 let activeDailyDateKey: string | null = null;
@@ -115,6 +117,7 @@ function getState() {
  * Routes to daily progress save when in daily mode.
  */
 function scheduleSave() {
+  if (manualEntryMode) return;
   if (dailyMode) {
     saveDailyProgress();
   } else {
@@ -188,6 +191,10 @@ function render() {
   const redoBtn = $btn("btn-redo");
   if (undoBtn) undoBtn.disabled = history.length === 0;
   if (redoBtn) redoBtn.disabled = future.length === 0;
+  const toolbar = document.getElementById("toolbar");
+  if (toolbar) toolbar.hidden = manualEntryMode;
+  const entryActions = document.getElementById("manual-entry-actions");
+  if (entryActions) entryActions.hidden = !manualEntryMode;
   // Update pencil mode button
   const pencilBtn = document.getElementById("btn-pencil");
   if (pencilBtn) pencilBtn.classList.toggle("active", pencilMode);
@@ -427,6 +434,8 @@ function handleVisibilityChange(): void {
  */
 function newGame(difficulty = currentDifficulty) {
   if (isPaused()) return;
+  manualEntryMode = false;
+  manualEntryBackup = null;
   leaveDailySession();
   currentDifficulty = difficulty;
   emptyMode = false;
@@ -484,6 +493,8 @@ function newGame(difficulty = currentDifficulty) {
  */
 function loadEmptyGrid() {
   if (isPaused()) return;
+  manualEntryMode = false;
+  manualEntryBackup = null;
   leaveDailySession();
   emptyMode = true;
   puzzleSource = "empty";
@@ -506,14 +517,133 @@ function loadEmptyGrid() {
   scheduleSave();
 }
 
+function loadManualEntry(): void {
+  if (isPaused()) return;
+
+  if (dailyMode) saveDailyProgress();
+  else {
+    cancelScheduledSave();
+    handlePersistenceResult(saveImmediate(getState()));
+  }
+  manualEntryBackup = {
+    state: getState(),
+    currentDifficulty,
+    puzzleSource,
+    dailyMode,
+    activeDailyDateKey,
+    selectedIdx,
+    activeDigit,
+  };
+
+  stopTimer();
+  manualEntryMode = true;
+  emptyMode = true;
+  puzzleSource = "manual-entry";
+  currentDifficulty = "imported";
+  board = new Array(81).fill(0);
+  solution = new Array(81).fill(0);
+  givens = new Array(81).fill(0);
+  candidates = Array.from({ length: 81 }, () => new Set<number>());
+  selectedIdx = null;
+  activeDigit = null;
+  pencilMode = false;
+  mistakes = 0;
+  timerSeconds = 0;
+  gameOver = false;
+  gameWon = false;
+  hintsUsedThisGame = 0;
+  history = [];
+  future = [];
+  setTimer(0);
+  hideHint();
+  render();
+  updateDifficultyButtons();
+  document.getElementById("btn-settings-close")?.focus();
+}
+
+function clearManualEntry(): void {
+  if (!manualEntryMode) return;
+  board = new Array(81).fill(0);
+  givens = new Array(81).fill(0);
+  candidates = Array.from({ length: 81 }, () => new Set<number>());
+  selectedIdx = null;
+  activeDigit = null;
+  history = [];
+  future = [];
+  render();
+  announce("Manual entry grid cleared", 'polite');
+}
+
+function cancelManualEntry(): void {
+  if (!manualEntryMode) return;
+  const backup = manualEntryBackup;
+  manualEntryBackup = null;
+  manualEntryMode = false;
+  if (!backup) {
+    newGame("medium");
+    return;
+  }
+
+  const state = backup.state;
+  board = state.board;
+  solution = state.solution;
+  givens = state.givens;
+  candidates = state.candidates;
+  pencilMode = state.pencilMode;
+  mistakes = state.mistakes;
+  timerSeconds = state.timerSeconds;
+  gameOver = state.gameOver;
+  gameWon = state.gameWon;
+  emptyMode = state.emptyMode;
+  hintsUsedThisGame = state.hintsUsedThisGame;
+  history = state.history;
+  future = state.future;
+  currentDifficulty = backup.currentDifficulty;
+  puzzleSource = backup.puzzleSource;
+  dailyMode = backup.dailyMode;
+  activeDailyDateKey = backup.activeDailyDateKey;
+  selectedIdx = backup.selectedIdx;
+  activeDigit = backup.activeDigit;
+  render();
+  setTimer(timerSeconds);
+  updateDifficultyButtons();
+  if (dailyMode) updateDailyBadge();
+  if (!isPaused()) startTimer();
+  announce("Manual entry cancelled", 'polite');
+}
+
+function finishManualEntry(): void {
+  if (!manualEntryMode) return;
+  const validation = validate(board);
+  if (!validation.valid) {
+    showModal({ title: "Conflicting Entries", body: validation.error || "Remove conflicting digits before finishing.", buttons: [{ label: "OK", primary: true }] });
+    return;
+  }
+  if (!validation.solvable) {
+    showModal({ title: "No Solution", body: validation.error || "These clues do not produce a valid solution.", buttons: [{ label: "OK", primary: true }] });
+    return;
+  }
+  if (!validation.unique) {
+    showModal({ title: "Multiple Solutions", body: validation.error || "Add more clues so this puzzle has exactly one solution.", buttons: [{ label: "OK", primary: true }] });
+    return;
+  }
+
+  const enteredBoard = board.slice();
+  manualEntryMode = false;
+  manualEntryBackup = null;
+  importPuzzle(enteredBoard, true);
+}
+
 // ─── import puzzle ────────────────────────────────────────────────────────
 
 /**
  * Load an imported puzzle board array into the game.
  * Exits daily mode if active. Solves for the solution if unique.
  */
-function importPuzzle(boardArray: Board) {
+function importPuzzle(boardArray: Board, recordStatistics = false) {
   if (isPaused()) return;
+  manualEntryMode = false;
+  manualEntryBackup = null;
   leaveDailySession();
   emptyMode = false;
   puzzleSource = "imported";
@@ -542,6 +672,7 @@ function importPuzzle(boardArray: Board) {
   hideHint();
   render();
   updateDifficultyButtons();
+  if (recordStatistics) recordGameStart("imported");
   scheduleSave();
   clearHash();
   computeActualDifficulty();
@@ -554,7 +685,7 @@ function importPuzzle(boardArray: Board) {
  * Start or resume today's daily challenge.
  */
 function startDaily(dateKey = getDateKey()) {
-  if (isPaused()) return;
+  if (isPaused() || manualEntryMode) return;
   if (dateKey !== getDateKey() && !loadProgress(dateKey)) return;
   // Check if already completed today
   if (dateKey === getDateKey() && getTodayStatus() === "completed") {
@@ -689,7 +820,7 @@ function placeDigit(digit: number) {
   // In empty mode every cell is editable
   if (!emptyMode && givens[idx] !== 0) return; // can't change a given
 
-  if (pencilMode) {
+  if (pencilMode && !manualEntryMode) {
     // ── pencil mark ──
     pushHistory();
     if (board[idx] !== 0) return; // can't pencil a filled cell
@@ -840,6 +971,7 @@ function showHint() {
 // ─── win / lose ───────────────────────────────────────────────────────────
 
 function checkWin() {
+  if (manualEntryMode) return;
   if (board.every((v, i) => v === solution[i])) {
     endGame(true);
   }
@@ -1076,6 +1208,7 @@ function wireUI() {
   bindBtn("btn-pause-resume", resumeGame);
   bindBtn("btn-auto-candidates", autoFillCandidates);
   bindBtn("btn-solve",   () => {
+    if (manualEntryMode) return;
     showModal({
       title: "Reveal Solution?",
       body: "This will show the complete solution. Are you sure?",
@@ -1109,6 +1242,20 @@ function wireUI() {
       ],
     });
   });
+
+  bindBtn("btn-manual-entry", () => {
+    showModal({
+      title: "Manual Puzzle Entry",
+      body: "Enter the puzzle's given digits. Cancel restores your current game. Closing or reloading during entry discards the unfinished entry.",
+      buttons: [
+        { label: "Start Entry", primary: true, onClick: () => { loadManualEntry(); _closeSettingsDrawer?.(); } },
+        { label: "Cancel", primary: false },
+      ],
+    });
+  });
+  bindBtn("manual-entry-finish", finishManualEntry);
+  bindBtn("manual-entry-clear", clearManualEntry);
+  bindBtn("manual-entry-cancel", cancelManualEntry);
 
   // New game button (uses currentDifficulty, already set by difficulty chips)
   bindBtn("btn-new-game", () => {
@@ -1291,7 +1438,7 @@ export function init() {
 // Save state immediately before page unload (catches rapid close)
 if (typeof window !== 'undefined') {
   window.addEventListener("beforeunload", function () {
-    if (!gameOver && !gameWon) {
+    if (!manualEntryMode && !gameOver && !gameWon) {
       if (dailyMode) {
         saveDailyProgress();
       } else {

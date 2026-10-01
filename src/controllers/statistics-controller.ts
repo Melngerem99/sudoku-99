@@ -38,7 +38,7 @@ export function close(): void {
 export function refresh(): void {
   const s = getStats();
   let totalWon = 0, totalLost = 0;
-  const difficulties = ["easy", "medium", "hard", "expert"];
+  const difficulties = ["easy", "medium", "hard", "expert", "imported"];
   for (const d of difficulties) {
     const pd = s.perDifficulty[d];
     totalWon += pd.won;

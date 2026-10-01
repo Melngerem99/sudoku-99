@@ -256,6 +256,19 @@ describe('StatisticsController — refresh populates data', function () {
   assertEqual(totalEl.textContent, '1', 'total games populated');
 });
 
+describe('Statistics — imported/manual games', function () {
+  loadControllerModules();
+  resetStorage();
+
+  Statistics.recordGameStart('imported');
+  Statistics.recordWin('imported', 95, 2);
+  const imported = Statistics.getStats().perDifficulty.imported;
+  assertEqual(imported.started, 1, 'manual entry start is tracked in imported stats');
+  assertEqual(imported.won, 1, 'manual entry win is tracked');
+  assertEqual(imported.bestTime, 95, 'manual entry best time is tracked');
+  assertEqual(Statistics.getStats().totalHintsUsed, 2, 'manual entry hints contribute to total stats');
+});
+
 // ─── AnalysisController ─────────────────────────────────────────────────────
 
 describe('AnalysisController — open and close', function () {

@@ -31,6 +31,7 @@ function defaultStats(): StatsData {
       medium: { started: 0, won: 0, lost: 0, bestTime: null, totalWinTime: 0 },
       hard:   { started: 0, won: 0, lost: 0, bestTime: null, totalWinTime: 0 },
       expert: { started: 0, won: 0, lost: 0, bestTime: null, totalWinTime: 0 },
+      imported: { started: 0, won: 0, lost: 0, bestTime: null, totalWinTime: 0 },
     },
     currentStreak: 0,
     longestStreak: 0,
@@ -48,6 +49,8 @@ function validateStats(data: any): data is StatsData {
       const pd = data.perDifficulty[d];
       if (!pd || typeof pd.started !== "number" || typeof pd.won !== "number") return false;
     }
+    const imported = data.perDifficulty.imported;
+    if (imported && (typeof imported.started !== "number" || typeof imported.won !== "number")) return false;
     return typeof data.currentStreak === "number" && typeof data.longestStreak === "number";
   } catch { return false; }
 }
@@ -58,6 +61,10 @@ function loadStats(): StatsData {
     if (!raw) return defaultStats();
     const data = JSON.parse(raw);
     if (!validateStats(data)) { try { localStorage.removeItem(STORAGE_KEY); } catch {} return defaultStats(); }
+    if (!data.perDifficulty.imported) {
+      data.perDifficulty.imported = { started: 0, won: 0, lost: 0, bestTime: null, totalWinTime: 0 };
+      saveStats(data);
+    }
     return data;
   } catch { try { localStorage.removeItem(STORAGE_KEY); } catch {} return defaultStats(); }
 }

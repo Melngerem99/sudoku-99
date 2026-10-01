@@ -101,6 +101,11 @@ export function scheduleSave(getStateFn: () => any, onResult?: (saved: boolean) 
   }, DEBOUNCE_MS);
 }
 
+export function cancelScheduledSave(): void {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = null;
+}
+
 export function saveImmediate(state: any): boolean {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(state)));
@@ -122,6 +127,6 @@ export function load(): any | null {
 }
 
 export function clear(): void {
-  if (debounceTimer) clearTimeout(debounceTimer);
+  cancelScheduledSave();
   try { localStorage.removeItem(STORAGE_KEY); } catch {}
 }

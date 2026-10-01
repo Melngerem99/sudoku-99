@@ -140,6 +140,7 @@ class MockDocument {
     this.register('btn-settings-close', 'button', settings);
     this.register('btn-import', 'button', settings);
     this.register('btn-analyze', 'button', settings);
+    this.register('btn-manual-entry', 'button', settings);
     const stats = this.register('stats-panel', 'aside', this.body);
     stats.setAttribute('role', 'dialog');
     this.register('btn-stats-close', 'button', stats);
@@ -149,6 +150,11 @@ class MockDocument {
     grid.setAttribute('aria-rowcount', '9');
     grid.setAttribute('aria-colcount', '9');
     this.register('numpad', 'section', this.getElementById('app'));
+    const entryActions = this.register('manual-entry-actions', 'section', this.getElementById('app'));
+    entryActions.hidden = true;
+    this.register('manual-entry-finish', 'button', entryActions);
+    this.register('manual-entry-clear', 'button', entryActions);
+    this.register('manual-entry-cancel', 'button', entryActions);
     this.register('daily-panel', 'aside', this.body);
     this.getElementById('daily-panel').setAttribute('role', 'dialog');
     this.register('btn-daily-close', 'button', this.getElementById('daily-panel'));
@@ -217,18 +223,30 @@ class MockDocument {
 function createIntervalClock() {
   let nextId = 0;
   const intervals = new Map();
+  const timeouts = new Map();
   global.setInterval = (callback, delay) => {
     const id = ++nextId;
     intervals.set(id, { callback, delay });
     return id;
   };
   global.clearInterval = (id) => intervals.delete(id);
-  global.setTimeout = () => ++nextId;
-  global.clearTimeout = () => {};
+  global.setTimeout = (callback, delay) => {
+    const id = ++nextId;
+    timeouts.set(id, { callback, delay });
+    return id;
+  };
+  global.clearTimeout = (id) => timeouts.delete(id);
   global.requestAnimationFrame = (callback) => { callback(); return 1; };
   return {
     intervals,
-    tick(delay) { [...intervals.values()].filter((item) => item.delay === delay).forEach((item) => item.callback()); }
+    timeouts,
+    tick(delay) { [...intervals.values()].filter((item) => item.delay === delay).forEach((item) => item.callback()); },
+    tickTimeout(delay) {
+      [...timeouts.entries()].filter(([, item]) => item.delay === delay).forEach(([id, item]) => {
+        timeouts.delete(id);
+        item.callback();
+      });
+    },
   };
 }
 
@@ -252,7 +270,7 @@ function seedGame(Persistence, difficulty = 'medium', paused = false) {
   });
 }
 
-function loadApp(storage = h.createMockStorage(), difficulty = 'medium') {
+function loadApp(storage = h.createMockStorage(), difficulty = 'medium', seed = true) {
   h.setupGlobals();
   global.localStorage = storage;
   global.location = { hash: '' };
@@ -261,7 +279,7 @@ function loadApp(storage = h.createMockStorage(), difficulty = 'medium') {
   const clock = createIntervalClock();
   delete require.cache[require.resolve(TEST_BUNDLE)];
   const app = require(TEST_BUNDLE);
-  seedGame(global.Persistence, difficulty);
+  if (seed) seedGame(global.Persistence, difficulty);
   app.initGameController();
   return { app, clock, document: global.document, storage };
 }

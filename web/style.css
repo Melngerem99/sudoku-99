@@ -640,6 +640,34 @@ html.dark #btn-dark::before { content: "☀️"; }
   white-space: nowrap;
 }
 
+.manual-entry-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  max-width: 444px;
+  margin: 0 auto;
+}
+
+.manual-entry-actions[hidden] { display: none; }
+
+.entry-action-btn {
+  flex: 1 1 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  border-radius: var(--r-btn);
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.entry-action-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════ */
 /* 5a. HINT PANEL  (bottom sheet)                                         */
 /* ═══════════════════════════════════════════════════════════════════════ */

@@ -187,6 +187,16 @@
 
     </section>
 
+    <section id="manual-entry-actions"
+             class="manual-entry-actions"
+             role="toolbar"
+             aria-label="Manual puzzle entry"
+             hidden>
+      <button id="manual-entry-finish" class="entry-action-btn entry-action-primary">Finish Entry</button>
+      <button id="manual-entry-clear" class="entry-action-btn">Clear Grid</button>
+      <button id="manual-entry-cancel" class="entry-action-btn">Cancel</button>
+    </section>
+
   </main><!-- /#app -->
 
 
@@ -349,6 +359,10 @@
       <button id="btn-empty" class="settings-action-btn">
         <span class="action-icon" aria-hidden="true">📋</span>
         Load Empty Grid
+      </button>
+      <button id="btn-manual-entry" class="settings-action-btn">
+        <span class="action-icon" aria-hidden="true">✍</span>
+        Enter Puzzle Manually
       </button>
       <button id="btn-solve" class="settings-action-btn">
         <span class="action-icon" aria-hidden="true">👁</span>
@@ -659,6 +673,7 @@
           <tr><td>Medium</td><td id="stats-medium-won">0</td><td id="stats-medium-lost">0</td><td id="stats-medium-best">—</td><td id="stats-medium-avg">—</td></tr>
           <tr><td>Hard</td><td id="stats-hard-won">0</td><td id="stats-hard-lost">0</td><td id="stats-hard-best">—</td><td id="stats-hard-avg">—</td></tr>
           <tr><td>Expert</td><td id="stats-expert-won">0</td><td id="stats-expert-lost">0</td><td id="stats-expert-best">—</td><td id="stats-expert-avg">—</td></tr>
+          <tr><td>Imported / Manual</td><td id="stats-imported-won">0</td><td id="stats-imported-lost">0</td><td id="stats-imported-best">—</td><td id="stats-imported-avg">—</td></tr>
         </tbody>
       </table>
     </div>
