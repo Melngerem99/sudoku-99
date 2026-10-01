@@ -36,7 +36,7 @@
   --cell-bg:         #ffffff;
   --cell-given:      #1c1c2e;
   --cell-user:       #4361ee;
-  --cell-pencil:     #8888aa;
+  --cell-pencil:     #62627f;
   --cell-border:     #e0e2ef;
   --cell-border-box: #8890c0;
 
@@ -125,7 +125,7 @@ html.dark {
   --cell-bg:         #1a1a2e;
   --cell-given:      #e8e8f8;
   --cell-user:       #7b8fff;
-  --cell-pencil:     #606088;
+  --cell-pencil:     #9999c4;
   --cell-border:     #2a2a45;
   --cell-border-box: #4a4a72;
 
